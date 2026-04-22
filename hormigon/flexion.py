@@ -275,7 +275,7 @@ def _dimensionar_rect_core(
     return dict(
         Mn=Mn, mn=mn, ka=ka_usado, ka_min=_ka_min, ka_max=_ka_max,
         c=c, a=a, epsilon_s=epsilon_s, phi=phi, phi_Mn=phi_Mn,
-        verifica=(phi_Mn >= Mu),
+        verifica=(phi_Mn >= Mu - 1e-9),
         tipo=tipo_rotura(epsilon_s, epsilon_y),
         As=As, As_prima=As_prima, fs_prima=fs_prima,
     )
@@ -409,7 +409,7 @@ def _dimensionar_T(
         epsilon_s=epsilon_s,
         phi=phi,
         phi_Mn=phi_Mn,
-        verifica=(phi_Mn >= Mu),
+        verifica=(phi_Mn >= Mu - 1e-9),
         tipo=tipo_rotura(epsilon_s, acero.epsilon_y),
         As=As_total,
         As_prima=As_prima,
