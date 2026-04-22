@@ -1,5 +1,14 @@
+# Cálculo numérico
 numpy>=1.26
 scipy>=1.12
+
+# Visualización
 matplotlib>=3.8
-jupyter>=1.0
+plotly>=5.20
+
+# Interfaz de escritorio
+PyQt6>=6.6
+PyQt6-WebEngine>=6.6
+
+# Tests
 pytest>=8.0
