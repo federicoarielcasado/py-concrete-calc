@@ -1,16 +1,14 @@
 """
-Losas de hormigón armado en 1 dirección — CIRSOC 201-2005.
+Losas de hormigón armado — CIRSOC 201-2005.
 
-Método de los coeficientes (art. 8.3.3): aplicable cuando hay ≥ 2 tramos,
-cargas uniformes y relación de luces adyacentes ≤ 1.20.
+1 dirección:
+  Método de los coeficientes (art. 8.3.3): ≥ 2 tramos, cargas uniformes,
+  relación de luces ≤ 1.20.
 
-Alcance:
-  - Espesores mínimos para control de deflexiones (art. 9.5.2.1).
-  - Momentos y cortantes por coeficientes (art. 8.3.3).
-  - Armadura principal (flexión) en cada sección crítica.
-  - Armadura de temperatura y retracción (art. 7.12).
-  - Separación máxima de barras (art. 7.6.5 y 7.12.2.2).
-  - Verificación de corte sin estribos (art. 11.3).
+2 direcciones:
+  Método Directo (DDM, art. 13.6): grilla regular, ≥ 3 vanos en cada
+  dirección, cargas de gravedad, relación de luces ≤ 2.
+  Cada dirección se analiza independientemente como en 1 dirección.
 """
 from __future__ import annotations
 
@@ -324,4 +322,206 @@ def calcular_losa_simple(
         secciones=[sec_losa],
         As_temp=As_temp, s_temp_max=s_t_max,
         phi_Vc=phi_Vc, Vu_max=Vu_max, verifica_corte=(phi_Vc >= Vu_max),
+    )
+
+
+# ---------------------------------------------------------------------------
+# Losa en 2 direcciones — Método Directo (DDM, art. 13.6)
+# ---------------------------------------------------------------------------
+
+# Factores de distribución longitudinal art. 13.6.3.2
+# cada tupla: (M_pos, M_neg_int, M_neg_ext)
+_DDM_FACTORES: dict[str, tuple[float, float, float]] = {
+    'int':           (0.35, 0.65, 0.65),   # tramo interior (ambos extremos continuos)
+    'ext_libre':     (0.52, 0.70, 0.00),   # tramo extremo, extremo exterior libre
+    'ext_empotrado': (0.52, 0.70, 0.26),   # tramo extremo, viga/muro en borde
+}
+
+
+def h_minimo_2dir(la: float, tipo: str = 'int') -> float:
+    """
+    Espesor mínimo para losa en 2 direcciones sin vigas (art. 9.5.3).
+    Con vigas perimetrales el reglamento permite reducirlo; se retorna como referencia.
+
+    la : vano corto [m]
+    tipo: 'int' | 'borde' | 'esquina'
+    """
+    factores = {'int': 33, 'borde': 36, 'esquina': 36}
+    return la / factores.get(tipo, 33)
+
+
+@dataclass
+class SeccionLosa2Dir:
+    """Resultado de armado en una sección critica de losa 2dir (por metro de ancho)."""
+    nombre:    str
+    direccion: str     # 'a' (corta) | 'b' (larga)
+    Mu:        float   # kNm/m
+    As:        float   # cm2/m
+    s_max:     float   # m — separacion maxima
+    phi_Mn:    float   # kNm/m
+    verifica:  bool
+
+
+@dataclass
+class ResultadoLosa2Dir:
+    """Resultado del diseño de una losa en 2 direcciones (DDM, art. 13.6)."""
+
+    # Geometria e inputs
+    la:      float    # m — vano corto (direccion a)
+    lb:      float    # m — vano largo (direccion b)
+    m:       float    # la/lb — relacion de aspecto
+    h:       float    # m — espesor adoptado
+    d_a:     float    # m — altura util dir. a (armadura inferior)
+    d_b:     float    # m — altura util dir. b (armadura superior a d_a)
+    wu:      float    # kN/m2
+
+    # Condicion de tramo
+    tipo_a:  str      # 'int' | 'ext_libre' | 'ext_empotrado'
+    tipo_b:  str
+
+    # Espesor minimo
+    h_min:       float
+    verifica_h:  bool
+
+    # Secciones de flexion
+    secciones: list[SeccionLosa2Dir]
+
+    # Temperatura y retraccion
+    As_temp:    float   # cm2/m
+    s_temp_max: float   # m
+
+    # Punzonamiento (verificacion simplificada, art. 11.12)
+    # Omitido en esta version; pendiente si hay columnas sin vigas perimetrales.
+
+    def mostrar(self) -> None:
+        ok_h = "OK" if self.verifica_h else "NO"
+        print(f"{'la (vano corto)':<30}: {self.la:.2f} m")
+        print(f"{'lb (vano largo)':<30}: {self.lb:.2f} m")
+        print(f"{'m = la/lb':<30}: {self.m:.3f}")
+        print(f"{'h adoptado':<30}: {self.h*100:.0f} cm  "
+              f"(h_min={self.h_min*100:.1f} cm  {ok_h})")
+        print(f"{'d_a (dir. corta)':<30}: {self.d_a*100:.1f} cm")
+        print(f"{'d_b (dir. larga)':<30}: {self.d_b*100:.1f} cm")
+        print(f"{'wu':<30}: {self.wu:.2f} kN/m2")
+        print(f"{'tipo_a / tipo_b':<30}: {self.tipo_a} / {self.tipo_b}")
+        print()
+        print(f"{'Seccion':<35} {'Dir':>4} {'Mu [kNm/m]':>11} "
+              f"{'As [cm2/m]':>11} {'phiMn [kNm/m]':>14}  OK")
+        print("-" * 82)
+        for s in self.secciones:
+            ok = "OK" if s.verifica else "NO"
+            print(f"  {s.nombre:<33} {s.direccion:>4} {s.Mu:>11.2f} "
+                  f"{s.As:>11.2f} {s.phi_Mn:>14.2f}  {ok}")
+        print()
+        print(f"{'As temperatura':<30}: {self.As_temp:.2f} cm2/m  "
+              f"s_max={self.s_temp_max*100:.0f} cm")
+
+
+def calcular_losa_2dir(
+    la:            float,
+    lb:            float,
+    h:             float,
+    recubrimiento: float,
+    hormigon:      Hormigon,
+    acero:         Acero,
+    wu:            float,
+    tipo_a:        str = 'int',
+    tipo_b:        str = 'int',
+) -> ResultadoLosa2Dir:
+    """
+    Disena una losa en 2 direcciones por el Metodo Directo (DDM, art. 13.6).
+
+    la, lb         : vanos libre corto y largo [m]  (la <= lb)
+    h              : espesor adoptado [m]
+    recubrimiento  : recubrimiento a la armadura exterior [m]
+    wu             : carga mayorada total [kN/m2]
+    tipo_a, tipo_b : condicion del tramo en cada direccion —
+                     'int'           → tramo interior (ambos extremos continuos)
+                     'ext_libre'     → tramo extremo, borde libre (sin restriccion)
+                     'ext_empotrado' → tramo extremo, borde con viga/muro
+
+    La armadura en la direccion a (corta) va en la capa inferior;
+    la de la direccion b (larga) en la capa superior a d_a, por lo que
+    d_b = d_a - diametro_barra (aprox. recubrimiento adicional de 2 cm).
+    """
+    if la > lb:
+        raise ValueError(f"la={la} debe ser el vano corto (la <= lb={lb}).")
+
+    m = la / lb
+    if m < 0.5:
+        raise ValueError(
+            f"m = la/lb = {m:.2f} < 0.5: la losa es casi unidireccional. "
+            "Usar calcular_losa_1dir con la armadura en la direccion corta."
+        )
+
+    # Alturas utiles
+    d_a = h - recubrimiento                  # armadura inferior (dir. corta)
+    d_b = h - recubrimiento - 0.02           # capa superior (dir. larga, -20 mm aprox)
+    d_b = max(d_b, h * 0.5)                  # no menor a h/2
+
+    s_max_p = s_max_principal(h)
+
+    # Seccion franja de 1 m para cada direccion
+    sec_a = SeccionRectangular(b=1.0, h=h, recubrimiento=recubrimiento,
+                               hormigon=hormigon, acero=acero)
+    # d_b se aproxima ajustando recubrimiento
+    rec_b = h - d_b
+    sec_b = SeccionRectangular(b=1.0, h=h, recubrimiento=rec_b,
+                               hormigon=hormigon, acero=acero)
+
+    def _dim(nombre: str, sec, Mu: float, dir_: str) -> SeccionLosa2Dir:
+        if Mu < 1e-6:
+            return SeccionLosa2Dir(nombre=nombre, direccion=dir_,
+                                   Mu=0.0, As=0.0, s_max=s_max_p,
+                                   phi_Mn=0.0, verifica=True)
+        r = dimensionar_flexion(sec, Mu=Mu)
+        return SeccionLosa2Dir(
+            nombre=nombre, direccion=dir_,
+            Mu=Mu, As=r.As, s_max=s_max_p,
+            phi_Mn=r.phi_Mn, verifica=r.verifica,
+        )
+
+    secciones: list[SeccionLosa2Dir] = []
+
+    # ---- Momentos por el DDM art. 13.6 ----------------------------------------
+    # Momento estatico total por metro de ancho:
+    #   m0 = wu * ln^2 / 8
+    # Distribucion segun tipo de tramo (factores de art. 13.6.3.2).
+    # Cada direccion se analiza INDEPENDIENTEMENTE con su propio wu * l^2 / 8.
+
+    for l, tipo, sec, dir_ in [
+        (la, tipo_a, sec_a, 'a'),
+        (lb, tipo_b, sec_b, 'b'),
+    ]:
+        M0 = wu * l ** 2 / 8.0    # kNm/m — momento estatico
+
+        if tipo not in _DDM_FACTORES:
+            raise ValueError(f"tipo '{tipo}' invalido. Usar: {list(_DDM_FACTORES)}")
+        f_pos, f_neg_int, f_neg_ext = _DDM_FACTORES[tipo]
+
+        M_pos    = f_pos    * M0
+        M_neg_int = f_neg_int * M0
+        M_neg_ext = f_neg_ext * M0
+
+        dir_label = 'a (corta)' if dir_ == 'a' else 'b (larga)'
+        secciones.append(_dim(f"M+ centro tramo ({dir_label})",  sec, M_pos,     dir_))
+        if M_neg_int > 1e-6:
+            secciones.append(_dim(f"M- apoyo int. ({dir_label})",   sec, M_neg_int, dir_))
+        if M_neg_ext > 1e-6:
+            secciones.append(_dim(f"M- apoyo ext. ({dir_label})",   sec, M_neg_ext, dir_))
+
+    # ---- Temperatura y retraccion -----------------------------------------------
+    As_temp  = As_temperatura(h, acero)
+    s_t_max  = s_max_temperatura(h)
+
+    # ---- Espesor minimo (art. 9.5.3.3, losa con vigas en todo el perimetro) -----
+    # Para losas con vigas en todos los apoyos (nuestro caso), h_min = la/33.
+    h_min = h_minimo_2dir(la, 'int')
+
+    return ResultadoLosa2Dir(
+        la=la, lb=lb, m=m, h=h, d_a=d_a, d_b=d_b, wu=wu,
+        tipo_a=tipo_a, tipo_b=tipo_b,
+        h_min=h_min, verifica_h=(h >= h_min - 1e-9),
+        secciones=secciones,
+        As_temp=As_temp, s_temp_max=s_t_max,
     )

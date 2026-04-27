@@ -342,6 +342,11 @@ class DiagramaInteraccion:
     phi_Mn_bal:  float
     tipo: str
 
+    def graficar(self, Pu: float | None = None, Mu: float | None = None):
+        """Dibuja el diagrama de interacción P-M. Pu y Mu son el punto de demanda [kN, kNm]."""
+        from graficos.diagramas import graficar_interaccion_PM
+        return graficar_interaccion_PM(self, Pu=Pu, Mu=Mu)
+
     def contiene(self, Pu: float, Mu: float) -> bool:
         """
         True si el punto (Pu, Mu) cae dentro del diagrama de diseño.

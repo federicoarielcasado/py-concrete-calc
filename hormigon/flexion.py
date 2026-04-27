@@ -137,6 +137,11 @@ class ResultadoFlexion:
             self.As_adoptada_prima = n_prima * BARRAS[phi_prima]
         return self
 
+    def graficar(self, seccion=None):
+        """Dibuja la sección con la armadura. Requiere `seccion` como argumento."""
+        from graficos.seccion_2d import graficar_seccion
+        return graficar_seccion(seccion, resultado_flex=self)
+
     def mostrar(self) -> None:
         print(f"{'Mu':25s}: {self.Mu:10.2f} kNm")
         print(f"{'φ':25s}: {self.phi:.2f}  ({self.tipo})")
@@ -183,6 +188,11 @@ class ResultadoSetFlexion:
     Mu: float
     As_requerida: float               # [cm²]
     variantes: list[VarianteFlexion] = field(default_factory=list)
+
+    def graficar(self, n_mostrar: int = 8):
+        """Gráfico comparativo de variantes rankeadas."""
+        from graficos.diagramas import graficar_variantes_flexion
+        return graficar_variantes_flexion(self, n_mostrar=n_mostrar)
 
     def mostrar(self) -> None:
         print(f"Mu = {self.Mu:.1f} kNm  |  As requerida = {self.As_requerida:.2f} cm²\n")

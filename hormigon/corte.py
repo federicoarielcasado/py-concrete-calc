@@ -245,6 +245,11 @@ class ResultadoCorte:
         self.Avs_real = n_ramas * BARRAS[phi] * 100.0 / s   # [mm²/m]
         return self
 
+    def graficar(self, seccion=None):
+        """Dibuja la sección con el estribado. Requiere `seccion` como argumento."""
+        from graficos.seccion_2d import graficar_seccion
+        return graficar_seccion(seccion, resultado_corte=self)
+
     def mostrar(self) -> None:
         print(f"{'Vu':25s}: {self.Vu:10.2f} kN")
         print(f"{'Vc (hormigón)':25s}: {self.Vc:10.2f} kN")
@@ -294,6 +299,11 @@ class ResultadoSetCorte:
     Avs_requerido: float
     s_maximo: float
     variantes: list[VarianteCorte] = field(default_factory=list)
+
+    def graficar(self, n_mostrar: int = 8):
+        """Gráfico comparativo de variantes de estribado."""
+        from graficos.diagramas import graficar_variantes_corte
+        return graficar_variantes_corte(self, n_mostrar=n_mostrar)
 
     def mostrar(self) -> None:
         print(
