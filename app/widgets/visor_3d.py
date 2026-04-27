@@ -14,11 +14,20 @@ from __future__ import annotations
 from PyQt6.QtWidgets import QWidget, QVBoxLayout, QLabel, QPushButton, QSizePolicy
 from PyQt6.QtCore import Qt
 
-try:
-    from PyQt6.QtWebEngineWidgets import QWebEngineView
-    _HAS_WEBENGINE = True
-except ImportError:
-    _HAS_WEBENGINE = False
+def _intentar_crear_webview():
+    """
+    Intenta importar e instanciar QWebEngineView.
+    Devuelve el widget listo, o None si falla por cualquier motivo.
+    Captura ImportError, RuntimeError, OSError, etc. (Windows puede
+    lanzar errores distintos de ImportError cuando el sandbox no está
+    disponible o falta QtWebEngineProcess.exe).
+    """
+    try:
+        from PyQt6.QtWebEngineWidgets import QWebEngineView
+        view = QWebEngineView()
+        return view
+    except Exception:
+        return None
 
 
 class VisorPlotly3D(QWidget):
@@ -29,25 +38,23 @@ class VisorPlotly3D(QWidget):
         self._layout = QVBoxLayout(self)
         self._layout.setContentsMargins(0, 0, 0, 0)
         self._fig = None
-        self._html_path: str | None = None
 
-        if _HAS_WEBENGINE:
-            self._view = QWebEngineView()
+        self._view = _intentar_crear_webview()
+
+        if self._view is not None:
             self._view.setSizePolicy(
                 QSizePolicy.Policy.Expanding,
                 QSizePolicy.Policy.Expanding,
             )
             self._layout.addWidget(self._view)
-            self._placeholder = None
         else:
-            self._view = None
-            self._placeholder = QLabel(
-                'Vista 3D no disponible.\n'
-                'Instalar PyQtWebEngine para habilitar la visualización incrustada.'
+            lbl = QLabel(
+                'Vista 3D integrada no disponible.\n'
+                'Usar el botón para abrir la figura en el navegador.'
             )
-            self._placeholder.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            self._placeholder.setObjectName('panel_crt')
-            self._layout.addWidget(self._placeholder)
+            lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            lbl.setObjectName('panel_crt')
+            self._layout.addWidget(lbl)
 
             self._btn_abrir = QPushButton('ABRIR EN NAVEGADOR')
             self._btn_abrir.setObjectName('btn_calcular')
@@ -61,7 +68,7 @@ class VisorPlotly3D(QWidget):
         """Muestra la figura Plotly en el visor o habilita el botón del navegador."""
         self._fig = fig
 
-        if _HAS_WEBENGINE:
+        if self._view is not None:
             html = fig.to_html(
                 include_plotlyjs='cdn',
                 full_html=True,
@@ -73,7 +80,7 @@ class VisorPlotly3D(QWidget):
 
     def limpiar(self) -> None:
         self._fig = None
-        if _HAS_WEBENGINE:
+        if self._view is not None:
             self._view.setHtml('<html><body style="background:#1a1a1a;"></body></html>')
         else:
             self._btn_abrir.setEnabled(False)

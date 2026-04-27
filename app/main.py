@@ -10,6 +10,9 @@ _ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _ROOT not in sys.path:
     sys.path.insert(0, _ROOT)
 
+# Requerido por Qt WebEngine en Windows antes de crear QApplication
+os.environ.setdefault('QTWEBENGINE_DISABLE_SANDBOX', '1')
+
 import matplotlib
 matplotlib.use('QtAgg')
 
