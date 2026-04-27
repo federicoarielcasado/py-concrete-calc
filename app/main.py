@@ -10,8 +10,12 @@ _ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _ROOT not in sys.path:
     sys.path.insert(0, _ROOT)
 
-# Requerido por Qt WebEngine en Windows antes de crear QApplication
+# WebEngine debe importarse ANTES de QApplication (requisito de Qt6 en Windows)
 os.environ.setdefault('QTWEBENGINE_DISABLE_SANDBOX', '1')
+try:
+    from PyQt6 import QtWebEngineWidgets as _qwew  # noqa: F401
+except Exception:
+    pass
 
 import matplotlib
 matplotlib.use('QtAgg')
