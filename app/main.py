@@ -166,11 +166,11 @@ class VentanaPrincipal(QMainWindow):
         from app.ventanas.torsion  import VentanaTorsion
         from app.ventanas.bases    import VentanaBases
         from app.ventanas.bielas   import VentanaBielas
-        from app.ventanas.planta   import VentanaPlanta
+        from app.ventanas.planta_canvas import VentanaPlantaCanvas
 
         for VClass in (VentanaFlexion, VentanaCorte, VentanaColumnas,
                        VentanaLosas, VentanaViga, VentanaTorsion,
-                       VentanaBases, VentanaBielas, VentanaPlanta):
+                       VentanaBases, VentanaBielas, VentanaPlantaCanvas):
             self.stack.addWidget(VClass())
 
     def _setup_statusbar(self) -> None:
