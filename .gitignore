@@ -23,3 +23,6 @@ Thumbs.db
 # PDFs y Excel del material de cursada (no van al repo)
 CLASES Y TPS EN PDF/
 REGLAMENTOS Y EJERCICIOS/
+
+# Claude Code internal memory
+.claude/

@@ -67,6 +67,7 @@ class VentanaPrincipal(QMainWindow):
         self.setWindowTitle('SIST. CÁLCULO ESTRUCTURAL  //  CIRSOC 201-2005')
         self.setFixedSize(1280, 800)
         self._modulo_activo = 'F-01 FLEXIÓN'
+        self._conversor = None
         self._setup_ui()
 
     # ── Construcción ────────────────────────────────────────────────────────
@@ -120,6 +121,40 @@ class VentanaPrincipal(QMainWindow):
             self._botones.append(btn)
 
         lay.addStretch()
+
+        # ── Conversor de unidades ────────────────────────────────────────────
+        sep_conv = QWidget()
+        sep_conv.setObjectName('sidebar_sep')
+        sep_conv.setFixedHeight(1)
+        lay.addWidget(sep_conv)
+        lay.addSpacing(4)
+
+        btn_conv = QPushButton('⇄\nUNIDADES')
+        btn_conv.setObjectName('btn_modulo')
+        btn_conv.setFixedSize(84, 36)
+        btn_conv.setToolTip(
+            'Conversor de unidades\n'
+            'kgf ↔ kN, tf ↔ kN, kgf·m ↔ kN·m,\n'
+            'kgf/cm² ↔ MPa, kgf/m² ↔ kN/m², ...'
+        )
+        btn_conv.clicked.connect(self._abrir_conversor)
+        lay.addWidget(btn_conv)
+        lay.addSpacing(2)
+
+        btn_guardar = QPushButton('↓ GUARDAR')
+        btn_guardar.setObjectName('btn_modulo')
+        btn_guardar.setFixedSize(84, 24)
+        btn_guardar.setToolTip('Guardar todos los inputs de la sesión en un archivo JSON')
+        btn_guardar.clicked.connect(self._guardar_sesion)
+        lay.addWidget(btn_guardar)
+
+        btn_abrir = QPushButton('↑ ABRIR')
+        btn_abrir.setObjectName('btn_modulo')
+        btn_abrir.setFixedSize(84, 24)
+        btn_abrir.setToolTip('Restaurar los inputs de una sesión guardada (JSON)')
+        btn_abrir.clicked.connect(self._abrir_sesion)
+        lay.addWidget(btn_abrir)
+        lay.addSpacing(2)
 
         # ── Selector de tema ─────────────────────────────────────────────────
         sep2 = QWidget()
@@ -191,6 +226,52 @@ class VentanaPrincipal(QMainWindow):
         codigo, nombre = self._MODULOS[idx]
         self._modulo_activo = f'{codigo} {nombre}'
         self._actualizar_status('LISTO')
+
+    def _guardar_sesion(self) -> None:
+        import json
+        from PyQt6.QtWidgets import QFileDialog
+        path, _ = QFileDialog.getSaveFileName(
+            self, 'Guardar sesión', '', 'JSON (*.json)'
+        )
+        if not path:
+            return
+        estados = {}
+        for i in range(8):
+            w = self.stack.widget(i)
+            if w is not None and hasattr(w, 'get_estado'):
+                estados[str(i)] = w.get_estado()
+        with open(path, 'w', encoding='utf-8') as f:
+            json.dump(estados, f, indent=2, ensure_ascii=False)
+        self._actualizar_status('SESIÓN GUARDADA')
+
+    def _abrir_sesion(self) -> None:
+        import json
+        from PyQt6.QtWidgets import QFileDialog
+        path, _ = QFileDialog.getOpenFileName(
+            self, 'Abrir sesión', '', 'JSON (*.json)'
+        )
+        if not path:
+            return
+        with open(path, encoding='utf-8') as f:
+            estados = json.load(f)
+        for idx_str, estado in estados.items():
+            w = self.stack.widget(int(idx_str))
+            if w is not None and hasattr(w, 'set_estado'):
+                try:
+                    w.set_estado(estado)
+                except Exception:
+                    pass
+        self._actualizar_status('SESIÓN CARGADA')
+
+    def _abrir_conversor(self) -> None:
+        if self._conversor is None:
+            from app.widgets.conversor_unidades import ConversorUnidades
+            self._conversor = ConversorUnidades(self)
+        if self._conversor.isVisible():
+            self._conversor.raise_()
+            self._conversor.activateWindow()
+        else:
+            self._conversor.show()
 
     def _cambiar_tema(self, codigo: str) -> None:
         tema = set_tema(codigo)

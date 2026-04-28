@@ -224,6 +224,38 @@ class PanelCRT(QTextEdit):
         ]
         self._renderizar(lineas)
 
+    def mostrar_resultado_losa_2dir(self, r) -> None:
+        t = self._t()
+        ok_h = '✓' if r.verifica_h else '✗'
+        lineas = [
+            ('> PROTOCOLO L-04 EJECUTADO — LOSA 2 DIRECCIONES (DDM)', t.crt_ambar),
+            None,
+            (f'>  la (vano corto) ............. {r.la:>9.2f} m', t.crt_verde),
+            (f'>  lb (vano largo) ............. {r.lb:>9.2f} m', t.crt_verde),
+            (f'>  m = la/lb ................... {r.m:>9.3f}', t.crt_verde),
+            (f'>  h adoptado .................. {r.h*100:>9.0f} cm', t.crt_verde),
+            (f'>  h_min (la/33) ............... {r.h_min*100:>9.1f} cm  {ok_h}', t.crt_verde),
+            (f'>  d_a (dir. corta) ............ {r.d_a*100:>9.1f} cm', t.crt_verde),
+            (f'>  d_b (dir. larga) ............ {r.d_b*100:>9.1f} cm', t.crt_verde),
+            (f'>  wu .......................... {r.wu:>9.2f} kN/m²', t.crt_verde),
+            None,
+        ]
+        for s in r.secciones:
+            if s.Mu < 1e-6:
+                continue
+            ok = '✓' if s.verifica else '✗'
+            lineas.append(
+                (f'>  [{s.direccion}] {s.nombre[:26]:<26} As={s.As:>5.2f}cm²  {ok}', t.crt_verde)
+            )
+        lineas += [
+            None,
+            (f'>  As temperatura .............. {r.As_temp:>9.2f} cm²/m', t.crt_verde),
+            None,
+            ('> ESTADO: NOMINAL', t.crt_verde) if r.verifica_h
+            else ('> ALERTA — REVISAR ESPESOR h', t.crt_rojo),
+        ]
+        self._renderizar(lineas)
+
     def mostrar_resultado_torsion(self, r) -> None:
         t = self._t()
         if r.despreciable:

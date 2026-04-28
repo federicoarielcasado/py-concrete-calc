@@ -15,6 +15,34 @@ from app.widgets.panel_crt import PanelCRT
 from app.widgets.visor_3d import VisorPlotly3D
 from app.widgets.selector_materiales import SelectorMateriales
 
+# Mapas fc → nombre de combo y fy → nombre de combo
+_FC_NOMBRES = {17: 'H17', 21: 'H21', 25: 'H25', 30: 'H30', 35: 'H35', 40: 'H40'}
+_FY_NOMBRES = {420: 'ADN 420', 500: 'AM 500N'}
+
+
+def _mat_datos(hormigon, acero) -> dict:
+    """Serializa materiales al formato de SelectorMateriales.set_datos()."""
+    fc, fy = hormigon.fc, acero.fy
+    d = {
+        'hormigon': _FC_NOMBRES.get(fc, 'Personalizado'),
+        'acero':    _FY_NOMBRES.get(fy, 'Personalizado'),
+    }
+    if d['hormigon'] == 'Personalizado':
+        d['fc'] = str(fc)
+    if d['acero'] == 'Personalizado':
+        d['fy'] = str(fy)
+    return d
+
+
+def _sec_datos(sec) -> dict:
+    """Serializa SeccionRectangular al formato de SelectorSeccion.set_datos()."""
+    return {
+        'tipo': 0,
+        'b':   str(sec.b),
+        'h':   str(sec.h),
+        'rec': str(sec.recubrimiento),
+    }
+
 
 class VentanaPlantaCanvas(QWidget):
 
@@ -45,7 +73,6 @@ class VentanaPlantaCanvas(QWidget):
         sep = QFrame(); sep.setFrameShape(QFrame.Shape.VLine)
         hl.addWidget(sep)
 
-        # Canvas (centro, expansible)
         self._scene = PlantaScene()
         self._view  = PlantaView(self._scene)
         self._scene.modelo_listo.connect(self._on_modelo_listo)
@@ -91,7 +118,6 @@ class VentanaPlantaCanvas(QWidget):
         f.addRow('wD:', self.spn_wD_def)
         f.addRow('wL:', self.spn_wL_def)
 
-        # Propagate defaults to view on change
         for w_ in (self.spn_h_def, self.spn_wD_def, self.spn_wL_def):
             w_.valueChanged.connect(self._sync_defaults)
         self.cmb_tipo.currentTextChanged.connect(self._sync_defaults)
@@ -120,12 +146,13 @@ class VentanaPlantaCanvas(QWidget):
         lay.addStretch()
         return w
 
-    # ── Panel derecho: resultados ─────────────────────────────────────────────
+    # ── Panel derecho: resultados + envío ─────────────────────────────────────
 
     def _panel_der(self) -> QWidget:
         w = QWidget(); w.setFixedWidth(310)
         lay = QVBoxLayout(w)
         lay.setContentsMargins(4, 0, 0, 0)
+        lay.setSpacing(4)
 
         spl = QSplitter(Qt.Orientation.Vertical)
         self.visor = VisorPlotly3D()
@@ -133,10 +160,41 @@ class VentanaPlantaCanvas(QWidget):
         self.crt.mostrar_bienvenida('E-09 PLANTA')
         spl.addWidget(self.visor)
         spl.addWidget(self.crt)
-        spl.setSizes([400, 200])
+        spl.setSizes([370, 180])
 
         lay.addWidget(spl, 1)
+        lay.addWidget(self._panel_enviar())
         return w
+
+    def _panel_enviar(self) -> QWidget:
+        grp = QGroupBox('ENVIAR A MÓDULO')
+        form = QFormLayout(grp)
+        form.setLabelAlignment(Qt.AlignmentFlag.AlignRight)
+        form.setSpacing(4)
+
+        self.combo_env_tipo = QComboBox()
+        self.combo_env_tipo.addItems(['VIGA', 'COLUMNA'])
+        self.combo_env_tipo.setToolTip(
+            'VIGA → abre el elemento en V-05 como viga continua\n'
+            'COLUMNA → abre el elemento en P-03 con Pu y Mu propagados'
+        )
+        self.combo_env_tipo.currentIndexChanged.connect(self._actualizar_ids)
+
+        self.combo_env_id = QComboBox()
+        self.combo_env_id.setToolTip('ID del elemento — disponible después de PROPAGAR CARGAS')
+
+        btn_env = QPushButton('ABRIR EN MÓDULO  →')
+        btn_env.setObjectName('btn_calcular')
+        btn_env.setToolTip(
+            'Pre-llena el módulo de cálculo con los datos del elemento seleccionado\n'
+            'y cambia a ese módulo automáticamente'
+        )
+        btn_env.clicked.connect(self._enviar_a_modulo)
+
+        form.addRow('Tipo:', self.combo_env_tipo)
+        form.addRow('ID:', self.combo_env_id)
+        form.addRow('', btn_env)
+        return grp
 
     # ── Barra inferior ────────────────────────────────────────────────────────
 
@@ -213,6 +271,7 @@ class VentanaPlantaCanvas(QWidget):
             self._propagacion = propagar(planta)
 
             self.crt.mostrar_resultado_propagacion(self._propagacion)
+            self._actualizar_ids()
 
             from graficos.modelo_3d import visualizar_planta_3d
             fig = visualizar_planta_3d(
@@ -224,3 +283,70 @@ class VentanaPlantaCanvas(QWidget):
             import traceback
             self.crt.mostrar_error(
                 f'{type(e).__name__}: {e}\n{traceback.format_exc()[-300:]}')
+
+    # ── Envío a módulos ───────────────────────────────────────────────────────
+
+    def _actualizar_ids(self):
+        """Rellena el combo de IDs según el tipo de elemento y la propagación actual."""
+        self.combo_env_id.clear()
+        if self._propagacion is None:
+            return
+        tipo = self.combo_env_tipo.currentText()
+        if tipo == 'VIGA':
+            ids = sorted(self._propagacion.cargas_vigas.keys())
+        else:
+            ids = sorted(self._propagacion.cargas_columnas.keys())
+        self.combo_env_id.addItems(ids)
+
+    def _enviar_a_modulo(self):
+        """Pre-llena el módulo de cálculo correspondiente y cambia de pestaña."""
+        if self._propagacion is None or self._planta is None:
+            self.crt.mostrar_error('Primero ejecutar PROPAGAR CARGAS.')
+            return
+
+        tipo    = self.combo_env_tipo.currentText()
+        elem_id = self.combo_env_id.currentText()
+        if not elem_id:
+            return
+
+        main = self.window()  # VentanaPrincipal
+
+        if tipo == 'VIGA':
+            cv   = self._propagacion.cargas_vigas.get(elem_id)
+            viga = self._planta.vigas.get(elem_id)
+            if cv is None or viga is None:
+                return
+
+            estado = {
+                'materiales': _mat_datos(self._planta.hormigon, self._planta.acero),
+                'seccion':    _sec_datos(viga.seccion),
+                'tipo': 2,  # CONTINUA
+                'c_ln':  str(round(cv.ln_disenio, 3)),
+                'c_wD':  str(round(cv.wD, 3)),
+                'c_wL':  str(round(cv.wL, 3)),
+                'c_n':   cv.n_tramos,
+                'c_ext': viga.extremo,
+                # Valores por defecto para los otros tipos (no usados)
+                's_L': '6.0', 's_wD': str(round(cv.wD, 3)), 's_wL': str(round(cv.wL, 3)),
+                'v_L': '2.0', 'v_wD': '10.0', 'v_wL': '8.0', 'v_PD': '0.0', 'v_PL': '0.0',
+            }
+            main.stack.widget(4).set_estado(estado)   # VentanaViga (índice 4)
+            main._cambiar_modulo(4)
+
+        elif tipo == 'COLUMNA':
+            cc  = self._propagacion.cargas_columnas.get(elem_id)
+            col = self._planta.columnas.get(elem_id)
+            if cc is None or col is None:
+                return
+
+            estado = {
+                'materiales': _mat_datos(self._planta.hormigon, self._planta.acero),
+                'seccion':    _sec_datos(col.seccion),
+                'Pu':   str(round(cc.Pu, 1)),
+                'Mu':   str(round(cc.Mu, 2)),
+                'tipo': 0 if col.tipo == 'estribos' else 1,
+                'phi_adop': 'φ20',
+                'n_adop': 8,
+            }
+            main.stack.widget(2).set_estado(estado)   # VentanaColumnas (índice 2)
+            main._cambiar_modulo(2)
