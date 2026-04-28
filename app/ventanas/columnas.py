@@ -33,6 +33,13 @@ class VentanaColumnas(QWidget):
         titulo.setObjectName('modulo_titulo')
         root.addWidget(titulo)
 
+        sub = QLabel(
+            'Usar para: flexocompresión y diagrama de interacción P-M  ·  '
+            'Recibe: Pu, Mu de V-05 o E-09  ·  Alimenta: B-07 (zapata de la columna)'
+        )
+        sub.setObjectName('modulo_subtitulo')
+        root.addWidget(sub)
+
         content = QWidget()
         hl = QHBoxLayout(content)
         hl.setContentsMargins(8, 8, 8, 8)

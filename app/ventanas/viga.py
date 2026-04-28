@@ -32,6 +32,13 @@ class VentanaViga(QWidget):
         titulo.setObjectName('modulo_titulo')
         root.addWidget(titulo)
 
+        sub = QLabel(
+            'Usar para: diseñar vigas con armadura longitudinal y estribos  ·  '
+            'Recibe: cargas de L-04 o E-09  ·  Alimenta: P-03 con las reacciones de apoyo'
+        )
+        sub.setObjectName('modulo_subtitulo')
+        root.addWidget(sub)
+
         content = QWidget()
         hl = QHBoxLayout(content)
         hl.setContentsMargins(8, 8, 8, 8)

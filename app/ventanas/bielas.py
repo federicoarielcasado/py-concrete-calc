@@ -30,6 +30,13 @@ class VentanaBielas(QWidget):
         titulo.setObjectName('modulo_titulo')
         root.addWidget(titulo)
 
+        sub = QLabel(
+            'Usar para: ménsulas cortas con a/d < 1 por método de bielas y tirantes (art. 10.7 + 11.9)  ·  '
+            'Elemento especial — independiente del flujo principal de diseño'
+        )
+        sub.setObjectName('modulo_subtitulo')
+        root.addWidget(sub)
+
         content = QWidget()
         hl = QHBoxLayout(content)
         hl.setContentsMargins(8, 8, 8, 8)

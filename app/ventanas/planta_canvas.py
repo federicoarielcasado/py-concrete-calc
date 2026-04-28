@@ -63,6 +63,13 @@ class VentanaPlantaCanvas(QWidget):
         titulo.setObjectName('modulo_titulo')
         root.addWidget(titulo)
 
+        sub = QLabel(
+            'Punto de partida para estructuras completas — modelar la planta con drag & drop y propagar '
+            'cargas gravitacionales  ·  Alimenta: V-05 y P-03 automáticamente (botón ABRIR EN MÓDULO)'
+        )
+        sub.setObjectName('modulo_subtitulo')
+        root.addWidget(sub)
+
         body = QWidget()
         hl = QHBoxLayout(body)
         hl.setContentsMargins(4, 4, 4, 4)

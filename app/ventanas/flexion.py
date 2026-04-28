@@ -37,6 +37,13 @@ class VentanaFlexion(QWidget):
         titulo.setObjectName('modulo_titulo')
         root.addWidget(titulo)
 
+        sub = QLabel(
+            'Usar para: dimensionar (Mu → As) o verificar (As → φMn) la armadura longitudinal  ·  '
+            'Complementar siempre con C-02 CORTE para el diseño completo de la viga'
+        )
+        sub.setObjectName('modulo_subtitulo')
+        root.addWidget(sub)
+
         # Contenido
         content = QWidget()
         hl = QHBoxLayout(content)

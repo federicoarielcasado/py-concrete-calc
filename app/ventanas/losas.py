@@ -32,6 +32,13 @@ class VentanaLosas(QWidget):
         titulo.setObjectName('modulo_titulo')
         root.addWidget(titulo)
 
+        sub = QLabel(
+            'Usar para: losas en 1 dir. (coef. art. 8.3.3) o 2 dir. DDM (art. 13.6)  ·  '
+            'Alimenta: V-05 con la carga distribuida sobre las vigas de borde'
+        )
+        sub.setObjectName('modulo_subtitulo')
+        root.addWidget(sub)
+
         content = QWidget()
         hl = QHBoxLayout(content)
         hl.setContentsMargins(8, 8, 8, 8)

@@ -31,6 +31,13 @@ class VentanaTorsion(QWidget):
         titulo.setObjectName('modulo_titulo')
         root.addWidget(titulo)
 
+        sub = QLabel(
+            'Usar cuando: Tu > Tu_min — torsión no despreciable combinada con corte (art. 11.6)  ·  '
+            'Complementa C-02  ·  Datos: Tu, Vu, sección'
+        )
+        sub.setObjectName('modulo_subtitulo')
+        root.addWidget(sub)
+
         content = QWidget()
         hl = QHBoxLayout(content)
         hl.setContentsMargins(8, 8, 8, 8)

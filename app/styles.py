@@ -155,6 +155,15 @@ QLabel#modulo_titulo {{
     border-bottom: 2px solid #000040;
 }}
 
+QLabel#modulo_subtitulo {{
+    background-color: {_lighten(t.titulo_fondo, 22)};
+    color: {t.titulo_texto};
+    font-family: "Consolas", "Courier New", monospace;
+    font-size: 9px;
+    padding: 2px 10px;
+    border-bottom: 1px solid #404040;
+}}
+
 /* ── GroupBox ───────────────────────────────────────────────────────────────── */
 
 QGroupBox {{

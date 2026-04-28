@@ -30,6 +30,13 @@ class VentanaBases(QWidget):
         titulo.setObjectName('modulo_titulo')
         root.addWidget(titulo)
 
+        sub = QLabel(
+            'Usar para: dimensionar la zapata aislada centrada de una columna (cap. 15)  ·  '
+            'Recibe: Pu de P-03  ·  Necesita: presión admisible del suelo (estudio geotécnico)'
+        )
+        sub.setObjectName('modulo_subtitulo')
+        root.addWidget(sub)
+
         content = QWidget()
         hl = QHBoxLayout(content)
         hl.setContentsMargins(8, 8, 8, 8)

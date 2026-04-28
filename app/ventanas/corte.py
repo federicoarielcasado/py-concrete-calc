@@ -35,6 +35,13 @@ class VentanaCorte(QWidget):
         titulo.setObjectName('modulo_titulo')
         root.addWidget(titulo)
 
+        sub = QLabel(
+            'Usar para: diseñar estribos ante Vu (art. 11.5)  ·  '
+            'Usar junto a F-01 para el diseño completo de cualquier viga o elemento a flexión + corte'
+        )
+        sub.setObjectName('modulo_subtitulo')
+        root.addWidget(sub)
+
         content = QWidget()
         hl = QHBoxLayout(content)
         hl.setContentsMargins(8, 8, 8, 8)
