@@ -132,6 +132,10 @@ python -m pytest
 | Interfaz de escritorio | PyQt6, Matplotlib (embebido), Plotly 3D (QWebEngineView) |
 | Tests | pytest |
 
+## Desarrollo
+
+Las decisiones de diseño, el modelo de cálculo de la planta, las convenciones y los pendientes están en [docs/DESARROLLO.md](docs/DESARROLLO.md). Las capturas de este README se regeneran con `python scripts/generar_capturas.py`.
+
 ## Estructura del proyecto
 
 ```
@@ -141,7 +145,8 @@ graficos/       # Visualización: secciones 2D, diagramas, modelo 3D
 app/            # Aplicación de escritorio PyQt6 (ventanas y widgets)
 tests/          # Tests unitarios por módulo
 ejemplos/       # Scripts que replican los ejemplos resueltos del CIRSOC
-docs/capturas/  # Capturas de la aplicación
+scripts/        # Herramientas de desarrollo (generación de capturas)
+docs/           # Notas de desarrollo y capturas de la aplicación
 ```
 
 ## Próximos pasos
