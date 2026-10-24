@@ -10,8 +10,9 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtCore import Qt
 
 from app.widgets.canvas_mpl import CanvasMatplotlib
-from app.widgets.panel_crt import PanelCRT
+from app.widgets.panel_resultados import PanelResultados
 from app.widgets.selector_materiales import SelectorMateriales
+from app.widgets.entradas import con_scroll, instalar_validadores, validar_campos
 
 
 class VentanaBielas(QWidget):
@@ -20,13 +21,14 @@ class VentanaBielas(QWidget):
         super().__init__(parent)
         self._resultado = None
         self._setup_ui()
+        instalar_validadores(self)
 
     def _setup_ui(self) -> None:
         root = QVBoxLayout(self)
         root.setContentsMargins(0, 0, 0, 0)
         root.setSpacing(0)
 
-        titulo = QLabel('MÓDULO-08 / MÉNSULA CORTA  —  BIELA-TIRANTE')
+        titulo = QLabel('M-08  ·  Ménsula corta — biela-tirante')
         titulo.setObjectName('modulo_titulo')
         root.addWidget(titulo)
 
@@ -41,7 +43,7 @@ class VentanaBielas(QWidget):
         hl = QHBoxLayout(content)
         hl.setContentsMargins(8, 8, 8, 8)
         hl.setSpacing(0)
-        hl.addWidget(self._panel_entrada())
+        hl.addWidget(con_scroll(self._panel_entrada()))
 
         sep = QFrame()
         sep.setFrameShape(QFrame.Shape.VLine)
@@ -118,7 +120,7 @@ class VentanaBielas(QWidget):
         form2.addRow('β_s biela:', self.combo_betas)
         lay.addWidget(grp2)
 
-        self.btn_calc = QPushButton('EJECUTAR PROTOCOLO M-08')
+        self.btn_calc = QPushButton('Calcular')
         self.btn_calc.setObjectName('btn_calcular')
         self.btn_calc.clicked.connect(self._ejecutar)
         lay.addWidget(self.btn_calc)
@@ -132,10 +134,9 @@ class VentanaBielas(QWidget):
         lay.setContentsMargins(8, 0, 0, 0)
         lay.setSpacing(4)
 
-        self.crt = PanelCRT()
-        self.crt.setFixedHeight(220)
-        self.crt.mostrar_bienvenida('M-08 MÉNSULA CORTA')
-        lay.addWidget(self.crt)
+        self.panel_res = PanelResultados()
+        self.panel_res.mostrar_bienvenida('M-08 · MÉNSULA CORTA')
+        lay.addWidget(self.panel_res)
 
         self.canvas = CanvasMatplotlib()
         lay.addWidget(self.canvas, stretch=1)
@@ -162,6 +163,8 @@ class VentanaBielas(QWidget):
         self.combo_betas.setCurrentIndex(d.get('betas', 0))
 
     def _ejecutar(self) -> None:
+        if not validar_campos(self):
+            return
         from hormigon.bielas import dimensionar_mensula
         try:
             horm  = self.sel_mat.get_hormigon()
@@ -180,11 +183,11 @@ class VentanaBielas(QWidget):
                 Nu=Nu, beta_s=beta_s,
             )
             self._resultado = r
-            self.crt.mostrar_resultado_mensula(r)
+            self.panel_res.mostrar_resultado_mensula(r)
             self._actualizar_canvas(r)
 
         except Exception as e:
-            self.crt.mostrar_error(str(e))
+            self.panel_res.mostrar_error(str(e))
 
     def _actualizar_canvas(self, r) -> None:
         from graficos import graficar_mensula

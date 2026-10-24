@@ -48,7 +48,7 @@ class SelectorSeccion(QGroupBox):
             'T / L: viga solidaria con losa — usar ancho efectivo del ala (art. 8.10)'
         )
         self._combo.currentIndexChanged.connect(lambda i: self._stack.setCurrentIndex(i))
-        fl.addRow('TIPO:', self._combo)
+        fl.addRow('Tipo:', self._combo)
         layout.addWidget(fila_tipo)
 
         # Stack por tipo

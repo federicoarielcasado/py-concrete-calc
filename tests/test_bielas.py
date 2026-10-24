@@ -421,3 +421,31 @@ class TestDimensionarMensula:
         res = dimensionar_mensula(Vu=150.0, a=0.20, b_mm=300.0, d=0.40,
                                    hormigon=h25, acero=adn420)
         assert res.verifica == res.verifica_biela
+
+
+class TestMensulaArmaduraMinima:
+    """Cuantía mínima (art. 11.9.5) y estribos horizontales (art. 11.9.4)."""
+
+    def test_As_min_formula(self, h25, adn420):
+        res = dimensionar_mensula(Vu=150.0, a=0.20, b_mm=300.0, d=0.40,
+                                   hormigon=h25, acero=adn420)
+        # 0.04 · 25/420 · 300 mm · 400 mm = 285.7 mm² = 2.857 cm²
+        assert abs(res.As_min - 2.857) < 0.01
+
+    def test_As_adoptar_gobierna_minima(self, h25, adn420):
+        res = dimensionar_mensula(Vu=150.0, a=0.20, b_mm=300.0, d=0.40,
+                                   hormigon=h25, acero=adn420)
+        assert res.As_total < res.As_min
+        assert abs(res.As_adoptar - res.As_min) < 1e-9
+
+    def test_As_adoptar_gobierna_calculo(self, h25, adn420):
+        res = dimensionar_mensula(Vu=600.0, a=0.30, b_mm=300.0, d=0.40,
+                                   hormigon=h25, acero=adn420)
+        assert res.As_total > res.As_min
+        assert abs(res.As_adoptar - res.As_total) < 1e-9
+
+    def test_Ah_mitad_de_As_menos_An(self, h25, adn420):
+        res = dimensionar_mensula(Vu=150.0, a=0.20, b_mm=300.0, d=0.40,
+                                   hormigon=h25, acero=adn420, Nu=30.0)
+        An = res.As_total - res.As_principal
+        assert abs(res.Ah - 0.5 * (res.As_adoptar - An)) < 1e-9

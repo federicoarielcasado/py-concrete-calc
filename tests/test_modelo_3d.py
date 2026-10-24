@@ -56,11 +56,17 @@ def test_legend_grupos(planta_simple):
 
 
 def test_con_propagacion(planta_simple):
-    """Con propagación no debe haber errores y debe haber más traces (etiquetas)."""
+    """Con propagación los rótulos incluyen Pu (columnas) y wu (vigas)."""
     prop = propagar(planta_simple)
     fig_sin = visualizar_planta_3d(planta_simple, propagacion=None)
     fig_con = visualizar_planta_3d(planta_simple, propagacion=prop)
-    assert len(fig_con.data) > len(fig_sin.data)
+
+    def rotulos(fig):
+        return ' '.join(t.text[0] for t in fig.data
+                        if t.type == 'scatter3d' and t.mode == 'text')
+
+    assert 'Pu=' in rotulos(fig_con) and 'wu=' in rotulos(fig_con)
+    assert 'Pu=' not in rotulos(fig_sin) and 'wu=' not in rotulos(fig_sin)
 
 
 def test_sin_ids(planta_simple):

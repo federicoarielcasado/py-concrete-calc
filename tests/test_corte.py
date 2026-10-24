@@ -262,9 +262,9 @@ class TestVariantes:
         for v in rset.variantes:
             assert v.s <= rset.s_maximo + 1e-9, f"s={v.s:.3f} > s_max={rset.s_maximo:.3f}"
 
-    def test_rankeadas_por_separacion_descendente(self, rset):
-        separaciones = [v.s for v in rset.variantes]
-        assert separaciones == sorted(separaciones, reverse=True)
+    def test_rankeadas_por_Avs_ascendente(self, rset):
+        avs = [round(v.Avs, 1) for v in rset.variantes]
+        assert avs == sorted(avs)
 
     def test_adoptar_rank_1_existe(self, rset):
         v1 = rset.adoptar(1)
@@ -274,9 +274,9 @@ class TestVariantes:
         with pytest.raises(ValueError):
             rset.adoptar(9999)
 
-    def test_rank_1_es_mayor_separacion(self, rset):
+    def test_rank_1_es_menor_Avs(self, rset):
         v1 = rset.adoptar(1)
-        assert v1.s == max(v.s for v in rset.variantes)
+        assert round(v1.Avs, 1) == min(round(v.Avs, 1) for v in rset.variantes)
 
     def test_Avs_supera_requerido(self, rset):
         for v in rset.variantes:

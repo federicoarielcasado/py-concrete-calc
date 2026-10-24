@@ -1,13 +1,8 @@
 """
-Definición de temas visuales de la aplicación.
+Temas visuales de la aplicación: Claro y Oscuro.
 
-Cada tema hereda la estructura Win98 (biseles, tipografía, layouts)
-pero cambia la paleta de acento, el sidebar y los colores del panel CRT.
-
-Temas disponibles:
-  BM — Black Mesa    (HL1, naranja HEV)
-  BS — Blue Shift    (expansión Blue Shift, azul seguridad)
-  OF — Opposing Force (expansión OpFor, verde militar)
+Cada tema define la paleta de la interfaz Qt (QSS), del panel de resultados,
+de las figuras matplotlib, del visor 3D y del lienzo de planta (E-09).
 """
 from __future__ import annotations
 
@@ -16,137 +11,97 @@ from dataclasses import dataclass
 
 @dataclass(frozen=True)
 class Tema:
-    nombre:     str
-    codigo:     str   # 2 letras para el botón del sidebar
+    nombre: str
+    codigo: str
+    oscuro: bool
 
-    # ── Base ──────────────────────────────────────────────────────────────
-    fondo_base:    str   # fondo general de widgets
-    fondo_marcos:  str   # frames y contenedores secundarios (ligeramente más oscuro)
+    # ── Interfaz ──────────────────────────────────────────────────────────
+    fondo:          str   # fondo general de la ventana
+    superficie:     str   # grupos, campos, tablas
+    superficie_alt: str   # filas alternas, hover
+    borde:          str
+    texto:          str
+    texto_suave:    str   # subtítulos, etiquetas secundarias
+    acento:         str   # botón principal, selección, foco
+    acento_hover:   str
+    acento_texto:   str
+    error:          str   # borde de campos inválidos
 
-    # ── Sidebar ───────────────────────────────────────────────────────────
+    # ── Barra lateral ─────────────────────────────────────────────────────
     sidebar_fondo:  str
-    sidebar_logo:   str   # color del texto "CIRSOC 201-2005"
+    sidebar_texto:  str
+    sidebar_hover:  str
 
-    # ── Botones de módulo (sidebar) ───────────────────────────────────────
-    btn_mod_normal: str
-    btn_mod_light:  str   # borde claro (arriba / izquierda)
-    btn_mod_dark:   str   # borde oscuro (abajo / derecha)
+    # ── Panel de resultados ───────────────────────────────────────────────
+    res_fondo:   str
+    res_texto:   str
+    res_titulo:  str
+    res_ok:      str
+    res_alerta:  str
+    res_tenue:   str
 
-    # ── Botón de acción principal ─────────────────────────────────────────
-    btn_act_normal: str
-    btn_act_light:  str
-    btn_act_dark:   str
-    btn_act_texto:  str
+    # ── Figuras (matplotlib / plotly) ─────────────────────────────────────
+    fig_fondo:   str
+    fig_ejes:    str
+    fig_texto:   str
+    fig_grilla:  str
 
-    # ── Barra de título del módulo ────────────────────────────────────────
-    titulo_fondo:   str
-    titulo_texto:   str
-
-    # ── Status bar ────────────────────────────────────────────────────────
-    status_fondo:   str
-    status_texto:   str
-
-    # ── Panel CRT (colores HTML, no QSS) ──────────────────────────────────
-    crt_fondo:      str
-    crt_verde:      str   # texto normal / resultado OK
-    crt_ambar:      str   # encabezados / advertencias
-    crt_rojo:       str   # errores / alertas
-    crt_gris:       str   # separadores / texto inactivo
+    # ── Lienzo de planta (E-09) ───────────────────────────────────────────
+    plano_fondo:   str
+    plano_grilla:  tuple[int, int, int, int]
+    plano_mayor:   tuple[int, int, int, int]
+    plano_panel:   tuple[int, int, int, int]
+    plano_sel:     tuple[int, int, int, int]
+    plano_rotulo:  str
 
 
-# ── BLACK MESA ────────────────────────────────────────────────────────────────
-# HEV suit amber, dark ops corridors. The classic.
+CLARO = Tema(
+    nombre='Claro', codigo='CLARO', oscuro=False,
 
-BLACK_MESA = Tema(
-    nombre    = 'Black Mesa',
-    codigo    = 'BM',
-    fondo_base    = '#C0C0C0',
-    fondo_marcos  = '#A8A8A8',
-    sidebar_fondo = '#404040',
-    sidebar_logo  = '#FFA500',
-    btn_mod_normal = '#CC7722',
-    btn_mod_light  = '#FFCC88',
-    btn_mod_dark   = '#884400',
-    btn_act_normal = '#D08000',
-    btn_act_light  = '#FFD080',
-    btn_act_dark   = '#805000',
-    btn_act_texto  = '#000000',
-    titulo_fondo   = '#000080',
-    titulo_texto   = '#FFFFFF',
-    status_fondo   = '#404040',
-    status_texto   = '#00CC00',
-    crt_fondo  = '#000000',
-    crt_verde  = '#00FF00',
-    crt_ambar  = '#FFAA00',
-    crt_rojo   = '#FF3C3C',
-    crt_gris   = '#606060',
+    fondo='#F2F4F7', superficie='#FFFFFF', superficie_alt='#F6F8FA',
+    borde='#D3D9E0', texto='#1F2933', texto_suave='#5B6775',
+    acento='#1F5FAD', acento_hover='#2B6FC2', acento_texto='#FFFFFF',
+    error='#D64545',
+
+    sidebar_fondo='#1F2B3A', sidebar_texto='#C5CFDA', sidebar_hover='#2C3B4E',
+
+    res_fondo='#FAFBFC', res_texto='#1F2933', res_titulo='#1F5FAD',
+    res_ok='#1E8A4C', res_alerta='#C62828', res_tenue='#8A96A3',
+
+    fig_fondo='#FFFFFF', fig_ejes='#FAFBFC', fig_texto='#1F2933', fig_grilla='#D9DEE4',
+
+    plano_fondo='#FFFFFF',
+    plano_grilla=(31, 41, 51, 28), plano_mayor=(31, 41, 51, 70),
+    plano_panel=(31, 95, 173, 30), plano_sel=(31, 95, 173, 70),
+    plano_rotulo='#24435F',
 )
 
-# ── BLUE SHIFT ────────────────────────────────────────────────────────────────
-# Barney Calhoun, security blues. Lambda Complex access terminals.
+OSCURO = Tema(
+    nombre='Oscuro', codigo='OSCURO', oscuro=True,
 
-BLUE_SHIFT = Tema(
-    nombre    = 'Blue Shift',
-    codigo    = 'BS',
-    fondo_base    = '#C4C8CC',
-    fondo_marcos  = '#ACBAC4',
-    sidebar_fondo = '#1A2A40',
-    sidebar_logo  = '#66AAFF',
-    btn_mod_normal = '#2A5599',
-    btn_mod_light  = '#88AADD',
-    btn_mod_dark   = '#112255',
-    btn_act_normal = '#1A44AA',
-    btn_act_light  = '#6699DD',
-    btn_act_dark   = '#0A2266',
-    btn_act_texto  = '#FFFFFF',
-    titulo_fondo   = '#102060',
-    titulo_texto   = '#AACCFF',
-    status_fondo   = '#1A2A40',
-    status_texto   = '#00AADD',
-    crt_fondo  = '#000811',
-    crt_verde  = '#00CCFF',
-    crt_ambar  = '#FFCC44',
-    crt_rojo   = '#FF4444',
-    crt_gris   = '#334455',
+    fondo='#15191F', superficie='#1E242C', superficie_alt='#252C35',
+    borde='#36404B', texto='#E3E8EE', texto_suave='#9AA5B1',
+    acento='#3D7FD1', acento_hover='#5193E0', acento_texto='#FFFFFF',
+    error='#FF6B6B',
+
+    sidebar_fondo='#0F1318', sidebar_texto='#AEB8C4', sidebar_hover='#1D242D',
+
+    res_fondo='#11151B', res_texto='#D7DEE6', res_titulo='#6FA8F0',
+    res_ok='#4CC38A', res_alerta='#FF6B6B', res_tenue='#6B7785',
+
+    fig_fondo='#1E242C', fig_ejes='#1A1F26', fig_texto='#D7DEE6', fig_grilla='#39424D',
+
+    plano_fondo='#161B21',
+    plano_grilla=(150, 160, 175, 40), plano_mayor=(150, 160, 175, 95),
+    plano_panel=(100, 150, 220, 40), plano_sel=(120, 190, 255, 80),
+    plano_rotulo='#D2E1F5',
 )
 
-# ── OPPOSING FORCE ────────────────────────────────────────────────────────────
-# Adrian Shephard, HECU. Field terminals. Military olive drab.
-
-OPPOSING_FORCE = Tema(
-    nombre    = 'Opposing Force',
-    codigo    = 'OF',
-    fondo_base    = '#B4BCA0',
-    fondo_marcos  = '#9EA898',
-    sidebar_fondo = '#1E2A14',
-    sidebar_logo  = '#AABB88',
-    btn_mod_normal = '#4A5E30',
-    btn_mod_light  = '#889966',
-    btn_mod_dark   = '#243018',
-    btn_act_normal = '#3A5020',
-    btn_act_light  = '#708050',
-    btn_act_dark   = '#1A2810',
-    btn_act_texto  = '#CCDDAA',
-    titulo_fondo   = '#1A2A0A',
-    titulo_texto   = '#AACCAA',
-    status_fondo   = '#1E2A14',
-    status_texto   = '#88CC44',
-    crt_fondo  = '#000800',
-    crt_verde  = '#88FF44',
-    crt_ambar  = '#FFDD44',
-    crt_rojo   = '#FF4422',
-    crt_gris   = '#445533',
-)
-
-TEMAS: dict[str, Tema] = {
-    'BM': BLACK_MESA,
-    'BS': BLUE_SHIFT,
-    'OF': OPPOSING_FORCE,
-}
+TEMAS: dict[str, Tema] = {t.codigo: t for t in (CLARO, OSCURO)}
 
 # ── Estado global ─────────────────────────────────────────────────────────────
 
-_tema_activo: Tema = BLACK_MESA
+_tema_activo: Tema = CLARO
 
 
 def get_tema() -> Tema:

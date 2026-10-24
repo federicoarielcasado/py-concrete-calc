@@ -97,7 +97,7 @@ class ConversorUnidades(QDialog):
         fl_in.addRow('Unidad:', self.combo_desde)
         lay.addWidget(grp_in)
 
-        btn_inv = QPushButton('⇅  INVERTIR SENTIDO')
+        btn_inv = QPushButton('⇅  Invertir sentido')
         btn_inv.clicked.connect(self._invertir)
         lay.addWidget(btn_inv)
 
@@ -116,7 +116,7 @@ class ConversorUnidades(QDialog):
         fl_out.addRow('=', self.lbl_resultado)
         lay.addWidget(grp_out)
 
-        btn_copiar = QPushButton('COPIAR NÚMERO AL PORTAPAPELES')
+        btn_copiar = QPushButton('Copiar número al portapapeles')
         btn_copiar.clicked.connect(self._copiar)
         lay.addWidget(btn_copiar)
 

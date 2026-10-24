@@ -12,9 +12,10 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtCore import Qt
 
 from app.widgets.canvas_mpl import CanvasMatplotlib
-from app.widgets.panel_crt import PanelCRT
+from app.widgets.panel_resultados import PanelResultados
 from app.widgets.selector_materiales import SelectorMateriales
 from app.widgets.selector_seccion import SelectorSeccion
+from app.widgets.entradas import con_scroll, instalar_validadores, validar_campos
 
 
 class VentanaFlexion(QWidget):
@@ -24,6 +25,7 @@ class VentanaFlexion(QWidget):
         self._resultado = None
         self._seccion   = None
         self._setup_ui()
+        instalar_validadores(self)
 
     # ── Construcción de la UI ────────────────────────────────────────────────
 
@@ -33,7 +35,7 @@ class VentanaFlexion(QWidget):
         root.setSpacing(0)
 
         # Título
-        titulo = QLabel('MÓDULO-01 / FLEXIÓN SIMPLE')
+        titulo = QLabel('F-01  ·  Flexión simple')
         titulo.setObjectName('modulo_titulo')
         root.addWidget(titulo)
 
@@ -50,7 +52,7 @@ class VentanaFlexion(QWidget):
         hl.setContentsMargins(8, 8, 8, 8)
         hl.setSpacing(0)
 
-        hl.addWidget(self._panel_entrada())
+        hl.addWidget(con_scroll(self._panel_entrada()))
 
         sep = QFrame()
         sep.setFrameShape(QFrame.Shape.VLine)
@@ -87,12 +89,12 @@ class VentanaFlexion(QWidget):
         lay.addWidget(grp)
 
         # Botones
-        self.btn_calc = QPushButton('EJECUTAR PROTOCOLO F-01')
+        self.btn_calc = QPushButton('Calcular')
         self.btn_calc.setObjectName('btn_calcular')
         self.btn_calc.clicked.connect(self._ejecutar)
         lay.addWidget(self.btn_calc)
 
-        self.btn_var = QPushButton('VER VARIANTES')
+        self.btn_var = QPushButton('Ver variantes')
         self.btn_var.setEnabled(False)
         self.btn_var.clicked.connect(self._ver_variantes)
         lay.addWidget(self.btn_var)
@@ -107,10 +109,9 @@ class VentanaFlexion(QWidget):
         lay.setSpacing(4)
 
         # CRT
-        self.crt = PanelCRT()
-        self.crt.setFixedHeight(190)
-        self.crt.mostrar_bienvenida('F-01 FLEXIÓN SIMPLE')
-        lay.addWidget(self.crt)
+        self.panel_res = PanelResultados()
+        self.panel_res.mostrar_bienvenida('F-01 · FLEXIÓN SIMPLE')
+        lay.addWidget(self.panel_res)
 
         # Canvas + tabla
         splitter = QSplitter(Qt.Orientation.Horizontal)
@@ -135,10 +136,11 @@ class VentanaFlexion(QWidget):
         self.tabla.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         self.tabla.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
         self.tabla.setAlternatingRowColors(True)
+        self.tabla.verticalHeader().setVisible(False)
         self.tabla.itemDoubleClicked.connect(self._adoptar_variante)
         lay.addWidget(self.tabla)
 
-        self.btn_adoptar = QPushButton('REGISTRAR CONFIGURACIÓN')
+        self.btn_adoptar = QPushButton('Adoptar variante seleccionada')
         self.btn_adoptar.setEnabled(False)
         self.btn_adoptar.clicked.connect(self._adoptar_seleccion)
         lay.addWidget(self.btn_adoptar)
@@ -159,6 +161,8 @@ class VentanaFlexion(QWidget):
         self.entrada_Mu.setText(d.get('Mu', '52'))
 
     def _ejecutar(self) -> None:
+        if not validar_campos(self):
+            return
         from hormigon.flexion import dimensionar_flexion
         try:
             horm = self.sel_mat.get_hormigon()
@@ -170,16 +174,18 @@ class VentanaFlexion(QWidget):
             self._resultado = r
             self._seccion   = sec
 
-            self.crt.mostrar_resultado_flexion(r)
+            self.panel_res.mostrar_resultado_flexion(r)
             self._actualizar_canvas(sec, r)
             self.btn_var.setEnabled(True)
             self.tabla.setRowCount(0)
             self.btn_adoptar.setEnabled(False)
 
         except Exception as e:
-            self.crt.mostrar_error(str(e))
+            self.panel_res.mostrar_error(str(e))
 
     def _ver_variantes(self) -> None:
+        if not validar_campos(self):
+            return
         from hormigon.flexion import dimensionar_flexion_variantes
         try:
             horm = self.sel_mat.get_hormigon()
@@ -193,7 +199,7 @@ class VentanaFlexion(QWidget):
             self.btn_adoptar.setEnabled(True)
 
         except Exception as e:
-            self.crt.mostrar_error(str(e))
+            self.panel_res.mostrar_error(str(e))
 
     def _actualizar_canvas(self, sec, r) -> None:
         from graficos import graficar_seccion
@@ -221,5 +227,5 @@ class VentanaFlexion(QWidget):
             return
         v = self._rset.variantes[row]
         self._resultado.adoptar(phi=v.phi, n=v.n)
-        self.crt.mostrar_resultado_flexion(self._resultado)
+        self.panel_res.mostrar_resultado_flexion(self._resultado)
         self._actualizar_canvas(self._seccion, self._resultado)

@@ -1,133 +1,118 @@
 """
-Hoja de estilos QSS parametrizada por tema.
+Hoja de estilos QSS parametrizada por tema (Claro / Oscuro).
 
 Uso:
     from app.styles import get_stylesheet
     from app.themes import get_tema
+    app.setStyle('Fusion')
     app.setStyleSheet(get_stylesheet(get_tema()))
 """
 from __future__ import annotations
 
+import os
+
 from app.themes import Tema
 
+_RECURSOS = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'recursos').replace(os.sep, '/')
 
-def _lighten(hex_color: str, amount: int = 20) -> str:
-    h = hex_color.lstrip('#')
-    r, g, b = int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16)
-    return f'#{min(255,r+amount):02X}{min(255,g+amount):02X}{min(255,b+amount):02X}'
-
-
-def _darken(hex_color: str, amount: int = 20) -> str:
-    h = hex_color.lstrip('#')
-    r, g, b = int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16)
-    return f'#{max(0,r-amount):02X}{max(0,g-amount):02X}{max(0,b-amount):02X}'
+_FUENTE      = '"Segoe UI", "Helvetica Neue", Arial, sans-serif'
+_FUENTE_MONO = '"Cascadia Mono", Consolas, "Courier New", monospace'
 
 
 def get_stylesheet(t: Tema) -> str:
-    sep_color       = _lighten(t.sidebar_fondo, 30)
-    btn_mod_hover   = _lighten(t.btn_mod_normal, 24)
-    btn_mod_pressed = _darken(t.btn_mod_normal, 30)
-    btn_act_hover   = _lighten(t.btn_act_normal, 16)
-
+    variante = 'oscuro' if t.oscuro else 'claro'
+    abajo  = f'{_RECURSOS}/flecha_abajo_{variante}.svg'
+    arriba = f'{_RECURSOS}/flecha_arriba_{variante}.svg'
     return f"""
 /* ── Base ──────────────────────────────────────────────────────────────────── */
 
 QMainWindow, QDialog {{
-    background-color: {t.fondo_base};
+    background-color: {t.fondo};
 }}
 
 QWidget {{
-    background-color: {t.fondo_base};
-    font-family: "Tahoma", "MS Sans Serif", sans-serif;
-    font-size: 11px;
-    color: #000000;
+    background-color: {t.fondo};
+    color: {t.texto};
+    font-family: {_FUENTE};
+    font-size: 12px;
 }}
 
-/* ── Sidebar ────────────────────────────────────────────────────────────────── */
+QToolTip {{
+    background-color: {t.superficie};
+    color: {t.texto};
+    border: 1px solid {t.borde};
+    padding: 6px;
+}}
+
+/* ── Barra lateral ──────────────────────────────────────────────────────────── */
 
 QWidget#sidebar {{
     background-color: {t.sidebar_fondo};
-    border-right: 2px solid #202020;
 }}
 
 QLabel#sidebar_logo {{
     background-color: transparent;
-    color: {t.sidebar_logo};
-    font-family: "Consolas", "Courier New", monospace;
-    font-size: 10px;
-    font-weight: bold;
-    padding: 4px 0;
+    color: {t.sidebar_texto};
+    font-size: 11px;
+    font-weight: 600;
+    padding: 6px 0 2px 0;
 }}
 
 QWidget#sidebar_sep {{
-    background-color: {sep_color};
+    background-color: {t.sidebar_hover};
     max-height: 1px;
     min-height: 1px;
 }}
 
 QPushButton#btn_modulo {{
-    background-color: {t.btn_mod_normal};
-    color: #000000;
-    font-family: "Tahoma", sans-serif;
-    font-size: 9px;
-    font-weight: bold;
-    border: 2px solid;
-    border-top-color:    {t.btn_mod_light};
-    border-left-color:   {t.btn_mod_light};
-    border-right-color:  {t.btn_mod_dark};
-    border-bottom-color: {t.btn_mod_dark};
+    background-color: transparent;
+    color: {t.sidebar_texto};
+    border: none;
+    border-left: 3px solid transparent;
+    border-radius: 0;
+    font-size: 11px;
+    font-weight: 600;
+    text-align: left;
+    padding: 6px 10px;
+    min-height: 0;
 }}
 
 QPushButton#btn_modulo:hover {{
-    background-color: {btn_mod_hover};
+    background-color: {t.sidebar_hover};
+    color: #FFFFFF;
 }}
 
-QPushButton#btn_modulo:pressed,
 QPushButton#btn_modulo:checked {{
-    background-color: {btn_mod_pressed};
-    border-top-color:    {t.btn_mod_dark};
-    border-left-color:   {t.btn_mod_dark};
-    border-right-color:  {t.btn_mod_light};
-    border-bottom-color: {t.btn_mod_light};
-    padding-top: 3px;
-    padding-left: 3px;
+    background-color: {t.sidebar_hover};
+    color: #FFFFFF;
+    border-left: 3px solid {t.acento};
 }}
-
-/* ── Botones de tema (sidebar) ──────────────────────────────────────────────── */
 
 QPushButton#btn_tema {{
-    background-color: {t.btn_mod_normal};
-    color: {t.btn_act_texto};
-    font-family: "Consolas", "Courier New", monospace;
-    font-size: 8px;
-    font-weight: bold;
-    border: 2px solid;
-    border-top-color:    {t.btn_mod_light};
-    border-left-color:   {t.btn_mod_light};
-    border-right-color:  {t.btn_mod_dark};
-    border-bottom-color: {t.btn_mod_dark};
-    padding: 0;
+    background-color: transparent;
+    color: {t.sidebar_texto};
+    border: 1px solid {t.sidebar_hover};
+    border-radius: 4px;
+    font-size: 10px;
+    padding: 3px 0;
+    min-height: 0;
 }}
 
 QPushButton#btn_tema:hover {{
-    background-color: {btn_mod_hover};
+    background-color: {t.sidebar_hover};
 }}
 
-QPushButton#btn_tema:pressed {{
-    border-top-color:    {t.btn_mod_dark};
-    border-left-color:   {t.btn_mod_dark};
-    border-right-color:  {t.btn_mod_light};
-    border-bottom-color: {t.btn_mod_light};
+QPushButton#btn_tema:checked {{
+    background-color: {t.acento};
+    border-color: {t.acento};
+    color: {t.acento_texto};
 }}
 
-/* ── Status bar ─────────────────────────────────────────────────────────────── */
+/* ── Barra de estado ────────────────────────────────────────────────────────── */
 
 QStatusBar {{
-    background-color: {t.status_fondo};
-    color: {t.status_texto};
-    font-family: "Consolas", "Courier New", monospace;
-    font-size: 10px;
-    border-top: 2px solid #202020;
+    background-color: {t.superficie};
+    border-top: 1px solid {t.borde};
     min-height: 22px;
 }}
 
@@ -137,42 +122,40 @@ QStatusBar::item {{
 
 QLabel#status_label {{
     background-color: transparent;
-    color: {t.status_texto};
-    font-family: "Consolas", "Courier New", monospace;
-    font-size: 10px;
+    color: {t.texto_suave};
+    font-size: 11px;
     padding: 2px 6px;
 }}
 
-/* ── Título de módulo ───────────────────────────────────────────────────────── */
+/* ── Encabezado de módulo ───────────────────────────────────────────────────── */
 
 QLabel#modulo_titulo {{
-    background-color: {t.titulo_fondo};
-    color: {t.titulo_texto};
-    font-family: "Tahoma", sans-serif;
-    font-size: 12px;
-    font-weight: bold;
-    padding: 5px 10px;
-    border-bottom: 2px solid #000040;
+    background-color: {t.superficie};
+    color: {t.texto};
+    font-size: 16px;
+    font-weight: 600;
+    padding: 10px 14px 0 14px;
 }}
 
 QLabel#modulo_subtitulo {{
-    background-color: {_lighten(t.titulo_fondo, 22)};
-    color: {t.titulo_texto};
-    font-family: "Consolas", "Courier New", monospace;
-    font-size: 9px;
-    padding: 2px 10px;
-    border-bottom: 1px solid #404040;
+    background-color: {t.superficie};
+    color: {t.texto_suave};
+    font-size: 11px;
+    padding: 2px 14px 10px 14px;
+    border-bottom: 1px solid {t.borde};
 }}
 
-/* ── GroupBox ───────────────────────────────────────────────────────────────── */
+/* ── Grupos ─────────────────────────────────────────────────────────────────── */
 
 QGroupBox {{
-    background-color: {t.fondo_base};
-    border: 2px groove #808080;
-    margin-top: 14px;
-    font-weight: bold;
-    font-size: 10px;
-    color: #000000;
+    background-color: {t.superficie};
+    border: 1px solid {t.borde};
+    border-radius: 6px;
+    margin-top: 16px;
+    padding: 6px 4px 4px 4px;
+    font-size: 11px;
+    font-weight: 600;
+    color: {t.texto_suave};
 }}
 
 QGroupBox::title {{
@@ -180,174 +163,159 @@ QGroupBox::title {{
     subcontrol-position: top left;
     left: 8px;
     padding: 0 4px;
-    background-color: {t.fondo_base};
+    background-color: transparent;
+    color: {t.texto_suave};
 }}
 
-/* ── LineEdit ───────────────────────────────────────────────────────────────── */
+QGroupBox QWidget {{
+    background-color: {t.superficie};
+}}
+
+QGroupBox QLabel, QCheckBox {{
+    background-color: transparent;
+    font-weight: normal;
+    color: {t.texto};
+}}
+
+/* ── Campos ─────────────────────────────────────────────────────────────────── */
+
+QLineEdit, QAbstractSpinBox, QComboBox {{
+    background-color: {t.superficie};
+    color: {t.texto};
+    border: 1px solid {t.borde};
+    border-radius: 4px;
+    padding: 3px 6px;
+    min-height: 20px;
+    selection-background-color: {t.acento};
+    selection-color: {t.acento_texto};
+}}
 
 QLineEdit {{
-    background-color: #FFFFFF;
-    border: 2px solid;
-    border-top-color:    #808080;
-    border-left-color:   #808080;
-    border-right-color:  #DFDFDF;
-    border-bottom-color: #DFDFDF;
-    padding: 2px 4px;
-    font-family: "Consolas", "Courier New", monospace;
-    font-size: 11px;
-    color: #000000;
-    selection-background-color: #000080;
-    selection-color: #FFFFFF;
+    font-family: {_FUENTE_MONO};
 }}
 
-QLineEdit:focus {{
-    border-top-color:    #000080;
-    border-left-color:   #000080;
-    border-right-color:  #A0A0FF;
-    border-bottom-color: #A0A0FF;
+QLineEdit:focus, QAbstractSpinBox:focus, QComboBox:focus {{
+    border: 1px solid {t.acento};
 }}
 
-QLineEdit:read-only {{
-    background-color: #D4D0C8;
-    color: #606060;
+QLineEdit[error="true"] {{
+    border: 2px solid {t.error};
 }}
 
-QLineEdit:disabled {{
-    background-color: #D4D0C8;
-    color: #808080;
-}}
-
-/* ── ComboBox ───────────────────────────────────────────────────────────────── */
-
-QComboBox {{
-    background-color: {t.fondo_base};
-    border: 2px solid;
-    border-top-color:    #FFFFFF;
-    border-left-color:   #FFFFFF;
-    border-right-color:  #808080;
-    border-bottom-color: #808080;
-    padding: 2px 4px;
-    min-height: 20px;
-    font-family: "Tahoma", sans-serif;
-    font-size: 11px;
+QLineEdit:disabled, QAbstractSpinBox:disabled, QComboBox:disabled {{
+    color: {t.texto_suave};
+    background-color: {t.superficie_alt};
 }}
 
 QComboBox::drop-down {{
     border: none;
-    width: 18px;
-    background-color: {t.fondo_base};
-    border-left: 1px solid #808080;
+    width: 20px;
 }}
 
 QComboBox::down-arrow {{
-    width: 0;
-    height: 0;
-    border-left: 4px solid transparent;
-    border-right: 4px solid transparent;
-    border-top: 6px solid #000000;
+    image: url({abajo});
+    width: 10px;
+    height: 6px;
+    margin-right: 6px;
 }}
 
 QComboBox QAbstractItemView {{
-    background-color: #FFFFFF;
-    border: 2px solid #000000;
-    selection-background-color: {t.titulo_fondo};
-    selection-color: {t.titulo_texto};
-    font-family: "Tahoma", sans-serif;
-    font-size: 11px;
+    background-color: {t.superficie};
+    color: {t.texto};
+    border: 1px solid {t.borde};
+    selection-background-color: {t.acento};
+    selection-color: {t.acento_texto};
+    outline: none;
 }}
 
-/* ── QPushButton general ────────────────────────────────────────────────────── */
+QAbstractSpinBox::up-button, QAbstractSpinBox::down-button {{
+    width: 16px;
+    border: none;
+    background-color: transparent;
+}}
+
+QAbstractSpinBox::up-arrow {{
+    image: url({arriba});
+    width: 8px;
+    height: 5px;
+}}
+
+QAbstractSpinBox::down-arrow {{
+    image: url({abajo});
+    width: 8px;
+    height: 5px;
+}}
+
+/* ── Botones ────────────────────────────────────────────────────────────────── */
 
 QPushButton {{
-    background-color: {t.fondo_base};
-    border: 2px solid;
-    border-top-color:    #FFFFFF;
-    border-left-color:   #FFFFFF;
-    border-right-color:  #808080;
-    border-bottom-color: #808080;
-    padding: 3px 14px;
-    min-height: 22px;
-    color: #000000;
-    font-family: "Tahoma", sans-serif;
-    font-size: 11px;
+    background-color: {t.superficie};
+    color: {t.texto};
+    border: 1px solid {t.borde};
+    border-radius: 4px;
+    padding: 5px 14px;
+    min-height: 18px;
 }}
 
 QPushButton:hover {{
-    background-color: #D4D0C8;
+    background-color: {t.superficie_alt};
+    border-color: {t.acento};
 }}
 
 QPushButton:pressed {{
-    border-top-color:    #808080;
-    border-left-color:   #808080;
-    border-right-color:  #FFFFFF;
-    border-bottom-color: #FFFFFF;
-    padding: 4px 13px 2px 15px;
+    background-color: {t.borde};
 }}
 
 QPushButton:disabled {{
-    color: #808080;
-    border-top-color:    #DFDFDF;
-    border-left-color:   #DFDFDF;
-    border-right-color:  #A0A0A0;
-    border-bottom-color: #A0A0A0;
+    color: {t.texto_suave};
+    background-color: {t.superficie_alt};
+    border-color: {t.borde};
 }}
 
-/* ── Botón de acción principal ──────────────────────────────────────────────── */
-
 QPushButton#btn_calcular {{
-    background-color: {t.btn_act_normal};
-    color: {t.btn_act_texto};
-    font-weight: bold;
-    min-height: 28px;
-    border-top-color:    {t.btn_act_light};
-    border-left-color:   {t.btn_act_light};
-    border-right-color:  {t.btn_act_dark};
-    border-bottom-color: {t.btn_act_dark};
+    background-color: {t.acento};
+    color: {t.acento_texto};
+    border: 1px solid {t.acento};
+    font-weight: 600;
+    min-height: 24px;
 }}
 
 QPushButton#btn_calcular:hover {{
-    background-color: {btn_act_hover};
+    background-color: {t.acento_hover};
+    border-color: {t.acento_hover};
 }}
 
-QPushButton#btn_calcular:pressed {{
-    border-top-color:    {t.btn_act_dark};
-    border-left-color:   {t.btn_act_dark};
-    border-right-color:  {t.btn_act_light};
-    border-bottom-color: {t.btn_act_light};
+QPushButton#btn_calcular:disabled {{
+    background-color: {t.superficie_alt};
+    color: {t.texto_suave};
+    border-color: {t.borde};
 }}
 
-/* ── Panel CRT ──────────────────────────────────────────────────────────────── */
+/* ── Panel de resultados ────────────────────────────────────────────────────── */
 
-QTextEdit#panel_crt {{
-    background-color: {t.crt_fondo};
-    color: {t.crt_verde};
-    font-family: "Consolas", "Courier New", monospace;
-    font-size: 11px;
-    border: 2px solid;
-    border-top-color:    #808080;
-    border-left-color:   #808080;
-    border-right-color:  #DFDFDF;
-    border-bottom-color: #DFDFDF;
+QTextEdit#panel_resultados {{
+    background-color: {t.res_fondo};
+    color: {t.res_texto};
+    border: 1px solid {t.borde};
+    border-radius: 6px;
     padding: 4px;
-    selection-background-color: #003300;
-    selection-color: {t.crt_verde};
+    selection-background-color: {t.acento};
+    selection-color: {t.acento_texto};
 }}
 
-/* ── QTableWidget ───────────────────────────────────────────────────────────── */
+/* ── Tablas ─────────────────────────────────────────────────────────────────── */
 
 QTableWidget {{
-    background-color: #FFFFFF;
-    gridline-color: #C0C0C0;
-    border: 2px solid;
-    border-top-color:    #808080;
-    border-left-color:   #808080;
-    border-right-color:  #DFDFDF;
-    border-bottom-color: #DFDFDF;
-    font-family: "Consolas", "Courier New", monospace;
-    font-size: 10px;
-    selection-background-color: {t.titulo_fondo};
-    selection-color: {t.titulo_texto};
-    alternate-background-color: #F0F0F0;
+    background-color: {t.superficie};
+    alternate-background-color: {t.superficie_alt};
+    color: {t.texto};
+    gridline-color: {t.borde};
+    border: 1px solid {t.borde};
+    border-radius: 6px;
+    font-family: {_FUENTE_MONO};
+    font-size: 11px;
+    selection-background-color: {t.acento};
+    selection-color: {t.acento_texto};
 }}
 
 QTableWidget::item {{
@@ -355,111 +323,75 @@ QTableWidget::item {{
 }}
 
 QHeaderView::section {{
-    background-color: {t.fondo_base};
-    border: 2px solid;
-    border-top-color:    #FFFFFF;
-    border-left-color:   #FFFFFF;
-    border-right-color:  #808080;
-    border-bottom-color: #808080;
-    padding: 2px 6px;
-    font-weight: bold;
-    font-size: 10px;
-    font-family: "Tahoma", sans-serif;
+    background-color: {t.superficie_alt};
+    color: {t.texto_suave};
+    border: none;
+    border-bottom: 1px solid {t.borde};
+    border-right: 1px solid {t.borde};
+    padding: 4px 6px;
+    font-weight: 600;
+    font-size: 11px;
 }}
 
-/* ── ScrollBar ──────────────────────────────────────────────────────────────── */
+QTableCornerButton::section {{
+    background-color: {t.superficie_alt};
+    border: none;
+}}
+
+/* ── Barras de desplazamiento ───────────────────────────────────────────────── */
 
 QScrollBar:vertical {{
-    background-color: {t.fondo_base};
-    width: 17px;
-    border: 1px solid #808080;
-}}
-
-QScrollBar::handle:vertical {{
-    background-color: {t.fondo_base};
-    border: 2px solid;
-    border-top-color:    #FFFFFF;
-    border-left-color:   #FFFFFF;
-    border-right-color:  #808080;
-    border-bottom-color: #808080;
-    min-height: 20px;
-}}
-
-QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {{
-    background-color: {t.fondo_base};
-    height: 17px;
-    border: 2px solid;
-    border-top-color:    #FFFFFF;
-    border-left-color:   #FFFFFF;
-    border-right-color:  #808080;
-    border-bottom-color: #808080;
-}}
-
-QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {{
-    background-color: {t.fondo_marcos};
+    background: transparent;
+    width: 10px;
+    margin: 2px;
 }}
 
 QScrollBar:horizontal {{
-    background-color: {t.fondo_base};
-    height: 17px;
-    border: 1px solid #808080;
+    background: transparent;
+    height: 10px;
+    margin: 2px;
 }}
 
-QScrollBar::handle:horizontal {{
-    background-color: {t.fondo_base};
-    border: 2px solid;
-    border-top-color:    #FFFFFF;
-    border-left-color:   #FFFFFF;
-    border-right-color:  #808080;
-    border-bottom-color: #808080;
-    min-width: 20px;
+QScrollBar::handle:vertical, QScrollBar::handle:horizontal {{
+    background-color: {t.borde};
+    border-radius: 3px;
+    min-height: 24px;
+    min-width: 24px;
 }}
 
-/* ── Splitter ───────────────────────────────────────────────────────────────── */
-
-QSplitter::handle:horizontal {{
-    background-color: {t.fondo_base};
-    border-left: 1px solid #808080;
-    border-right: 1px solid #FFFFFF;
-    width: 4px;
+QScrollBar::handle:hover {{
+    background-color: {t.texto_suave};
 }}
 
-QSplitter::handle:vertical {{
-    background-color: {t.fondo_base};
-    border-top: 1px solid #808080;
-    border-bottom: 1px solid #FFFFFF;
-    height: 4px;
+QScrollBar::add-line, QScrollBar::sub-line {{
+    width: 0;
+    height: 0;
 }}
 
-/* ── Separadores QFrame ─────────────────────────────────────────────────────── */
+QScrollBar::add-page, QScrollBar::sub-page {{
+    background: transparent;
+}}
+
+/* ── Divisores y separadores ────────────────────────────────────────────────── */
+
+QSplitter::handle {{
+    background-color: {t.fondo};
+}}
+
+QSplitter::handle:horizontal {{ width: 6px; }}
+QSplitter::handle:vertical   {{ height: 6px; }}
 
 QFrame[frameShape="5"] {{
     border: none;
-    border-left: 1px solid #808080;
-    border-right: 1px solid #FFFFFF;
-    max-width: 3px;
-    min-width: 3px;
+    background-color: {t.borde};
+    max-width: 1px;
+    min-width: 1px;
 }}
 
 QFrame[frameShape="4"] {{
     border: none;
-    border-top: 1px solid #808080;
-    border-bottom: 1px solid #FFFFFF;
-    max-height: 3px;
-    min-height: 3px;
-}}
-
-/* ── Labels de estado ───────────────────────────────────────────────────────── */
-
-QLabel#lbl_nominal {{
-    color: #007700;
-    font-weight: bold;
-    background-color: transparent;
-}}
-
-QLabel#lbl_alerta {{
-    color: #CC0000;
-    font-weight: bold;
-    background-color: transparent;
+    background-color: {t.borde};
+    max-height: 1px;
+    min-height: 1px;
 }}
 """

@@ -26,3 +26,9 @@ REGLAMENTOS Y EJERCICIOS/
 
 # Claude Code internal memory
 .claude/
+
+# Salida de ejemplos
+planta_3d.html
+
+# Instrucciones locales para asistentes de código
+CLAUDE.md

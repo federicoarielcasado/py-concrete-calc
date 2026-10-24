@@ -26,16 +26,21 @@ from PyQt6.QtGui import QPainter, QPen, QBrush, QColor, QFont
 SCALE  = 80      # px / metro
 SNAP_M = 1.0     # paso de grilla en metros
 
-_C_GRID       = QColor(70,  70,  70,  40)
-_C_GRID_MAJ   = QColor(90,  90,  90,  90)
-_C_PANEL_FILL = QColor(100, 140, 200, 38)
-_C_PANEL_SEL  = QColor(120, 190, 255, 70)
-_C_EDGE_LIBRE = QColor(120, 120, 140, 80)
 _C_EDGE_VIGA  = QColor(150,  90,  35, 255)
 _C_VIGA       = QColor(160, 100,  40, 220)
-_C_COL_FILL   = QColor( 44,  62,  80, 230)
-_C_LABEL      = QColor(210, 225, 255)
 
+
+def _tema():
+    from app.themes import get_tema
+    return get_tema()
+
+
+def _c(rgba: tuple[int, int, int, int]) -> QColor:
+    return QColor(*rgba)
+
+
+def _c_columna() -> QColor:
+    return QColor('#9FB3C8') if _tema().oscuro else QColor('#2C3E50')
 
 def _snap(px: float) -> float:
     step = SNAP_M * SCALE
@@ -140,7 +145,8 @@ class PanelItem(QGraphicsRectItem):
 
     def paint(self, painter: QPainter, option, widget=None):
         r = self.rect()
-        painter.fillRect(r, _C_PANEL_SEL if self.isSelected() else _C_PANEL_FILL)
+        t = _tema()
+        painter.fillRect(r, _c(t.plano_sel) if self.isSelected() else _c(t.plano_panel))
 
         ew = 5
         for has_viga, p0, p1 in [
@@ -149,12 +155,12 @@ class PanelItem(QGraphicsRectItem):
             (self.props.edge_w, r.topLeft(),    r.bottomLeft()),
             (self.props.edge_e, r.topRight(),   r.bottomRight()),
         ]:
-            pen = QPen(_C_EDGE_VIGA, ew) if has_viga else QPen(_C_EDGE_LIBRE, 1)
+            pen = QPen(_C_EDGE_VIGA, ew) if has_viga else QPen(_c(t.plano_mayor), 1)
             painter.setPen(pen)
             painter.drawLine(p0, p1)
 
-        painter.setPen(QPen(_C_LABEL))
-        painter.setFont(QFont('Consolas', 8))
+        painter.setPen(QPen(QColor(t.plano_rotulo)))
+        painter.setFont(QFont('Consolas', 11))
         lx = round(self.rect().width()  / SCALE, 2)
         ly = round(self.rect().height() / SCALE, 2)
         txt = (f'{self.panel_id}\n'
@@ -176,7 +182,7 @@ class ColumnaItem(QGraphicsRectItem):
         h = sz / 2
         super().__init__(-h, -h, sz, sz)
         self.setPos(x, y)
-        self.setBrush(QBrush(_C_COL_FILL))
+        self.setBrush(QBrush(_c_columna()))
         self.setPen(QPen(QColor(20, 30, 40), 1.5))
         self.setZValue(3)
 
@@ -290,6 +296,29 @@ class PlantaScene(QGraphicsScene):
         self.reconstruir()
         return item
 
+    def limpiar(self):
+        for item in list(self._panels):
+            self.removeItem(item)
+        self._panels.clear()
+        self._counter = 0
+        self.reconstruir()
+
+    def exportar(self) -> list[dict]:
+        """Paneles en metros + propiedades, serializable a JSON."""
+        from dataclasses import asdict
+        return [
+            {'x0': p.x0_m(), 'y0': p.y0_m(), 'x1': p.x1_m(), 'y1': p.y1_m(),
+             'props': asdict(p.props)}
+            for p in self._panels
+        ]
+
+    def importar(self, paneles: list[dict]) -> None:
+        self.limpiar()
+        for d in paneles:
+            self.agregar_panel(d['x0'] * SCALE, d['y0'] * SCALE,
+                               d['x1'] * SCALE, d['y1'] * SCALE,
+                               PanelProps(**d.get('props', {})))
+
     def eliminar_seleccionados(self):
         for item in list(self.selectedItems()):
             if isinstance(item, PanelItem):
@@ -358,20 +387,23 @@ class PlantaScene(QGraphicsScene):
 
     def drawBackground(self, painter: QPainter, rect):
         super().drawBackground(painter, rect)
+        t = _tema()
         step  = SNAP_M * SCALE
         major = step * 5
 
         x = int(rect.left()  / step) * step
         while x <= rect.right():
             maj = abs(round(x / major) * major - x) < 0.5
-            painter.setPen(QPen(_C_GRID_MAJ if maj else _C_GRID, 0.5))
+            pen = QPen(_c(t.plano_mayor) if maj else _c(t.plano_grilla), 1); pen.setCosmetic(True)
+            painter.setPen(pen)
             painter.drawLine(QPointF(x, rect.top()), QPointF(x, rect.bottom()))
             x += step
 
         y = int(rect.top() / step) * step
         while y <= rect.bottom():
             maj = abs(round(y / major) * major - y) < 0.5
-            painter.setPen(QPen(_C_GRID_MAJ if maj else _C_GRID, 0.5))
+            pen = QPen(_c(t.plano_mayor) if maj else _c(t.plano_grilla), 1); pen.setCosmetic(True)
+            painter.setPen(pen)
             painter.drawLine(QPointF(rect.left(), y), QPointF(rect.right(), y))
             y += step
 
@@ -516,7 +548,7 @@ class PlantaView(QGraphicsView):
         self.setTransformationAnchor(
             QGraphicsView.ViewportAnchor.AnchorUnderMouse)
         self.setDragMode(QGraphicsView.DragMode.NoDrag)
-        self.setStyleSheet('background: #1a1a1a;')
+        self.setBackgroundBrush(QColor(_tema().plano_fondo))
 
         self._drawing   = False
         self._panning   = False
@@ -525,13 +557,38 @@ class PlantaView(QGraphicsView):
         self._pan_start = None
         self._rubber: QRubberBand | None = None
         self._default_props = PanelProps()
+        self._auto_fit = True   # re-encuadrar al redimensionar hasta que el usuario haga zoom/paneo
 
     def set_default_props(self, props: PanelProps):
         self._default_props = props
 
+    def aplicar_tema(self) -> None:
+        self.setBackgroundBrush(QColor(_tema().plano_fondo))
+        for it in self.scene().items():
+            if isinstance(it, ColumnaItem):
+                it.setBrush(QBrush(_c_columna()))
+        self.scene().update()
+        self.viewport().update()
+
+    def encuadrar(self) -> None:
+        """Ajusta el zoom para mostrar toda la planta dibujada."""
+        rect = self.scene().itemsBoundingRect()
+        if rect.isEmpty():
+            return
+        m = SCALE * 0.75
+        self.resetTransform()
+        self.fitInView(rect.adjusted(-m, -m, m, m), Qt.AspectRatioMode.KeepAspectRatio)
+        self._auto_fit = True
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        if self._auto_fit:
+            self.encuadrar()
+
     # ── Zoom ─────────────────────────────────────────────────────────────────
 
     def wheelEvent(self, event):
+        self._auto_fit = False
         f = 1.15 if event.angleDelta().y() > 0 else 1 / 1.15
         self.scale(f, f)
 
@@ -540,6 +597,7 @@ class PlantaView(QGraphicsView):
     def mousePressEvent(self, event):
         if event.button() == Qt.MouseButton.RightButton:
             self._panning   = True
+            self._auto_fit  = False
             self._pan_start = event.pos()
             self.setCursor(Qt.CursorShape.ClosedHandCursor)
             return

@@ -82,7 +82,7 @@ def _panel_info(ax, lines: list[tuple[str, str]]):
         ax.text(0.03, y, k, ha='left', va='top', fontsize=8,
                 transform=ax.transAxes, color='#555')
         if v:
-            ax.text(0.50, y, v, ha='left', va='top', fontsize=8,
+            ax.text(0.40, y, v, ha='left', va='top', fontsize=8,
                     transform=ax.transAxes, color='black', fontweight='bold')
         y -= dy
 
@@ -101,7 +101,8 @@ def _lineas_info_flex(sec, rf, rc) -> list[tuple[str, str]]:
     if rf is not None:
         lines.append(('---', ''))
         lines.append(('Mu',      f"{rf.Mu:.1f} kNm"))
-        lines.append(('φ',       f"{rf.phi:.2f}  ({rf.tipo})"))
+        lines.append(('φ',       f"{rf.phi:.2f}"))
+        lines.append(('Rotura',  f"{rf.tipo}"))
         check = '✓' if rf.verifica else '✗'
         lines.append(('φ·Mn',    f"{rf.phi_Mn:.1f} kNm  {check}"))
         lines.append(('a',       f"{rf.a*100:.2f} cm"))

@@ -315,6 +315,9 @@ class ResultadoMensulaCorta:
     # Armadura
     As_principal: float   # cm²  — armadura principal (tirante horizontal)
     As_total:     float   # cm²  — As_principal + Nu/(φ×fy)
+    As_min:       float   # cm²  — 0.04·(f'c/fy)·b·d (art. 11.9.5)
+    As_adoptar:   float   # cm²  — max(As_total, As_min): armadura principal a disponer
+    Ah:           float   # cm²  — estribos horizontales cerrados 0.5·(As − An) (art. 11.9.4)
 
     # Verificación de biela
     sigma_biela:  float   # MPa actuante
@@ -332,6 +335,9 @@ class ResultadoMensulaCorta:
         print(f"{'F tirante principal':30s}: {self.F_tirante_principal:.1f} kN")
         print(f"{'As principal':30s}: {self.As_principal:.2f} cm²")
         print(f"{'As total':30s}: {self.As_total:.2f} cm²")
+        print(f"{'As mínima (art. 11.9.5)':30s}: {self.As_min:.2f} cm²")
+        print(f"{'As a disponer':30s}: {self.As_adoptar:.2f} cm²")
+        print(f"{'Ah estribos horiz. (11.9.4)':30s}: {self.Ah:.2f} cm²")
         print(f"{'σ biela / φ·fce':30s}: {self.sigma_biela:.2f} / {self.phi_fce:.2f} MPa  "
               f"{'✓' if self.verifica_biela else '✗'}")
 
@@ -389,6 +395,11 @@ def dimensionar_mensula(
     As_nu    = Nu / (PHI_BT * acero.fy * 1000.0) * 1e4 if Nu > 0 else 0.0
     As_total = As_princ + As_nu
 
+    # Cuantía mínima (art. 11.9.5) y estribos horizontales (art. 11.9.4)
+    As_min     = 0.04 * hormigon.fc / acero.fy * b_mm * d * 1000.0 / 100.0   # cm²
+    As_adoptar = max(As_total, As_min)
+    Ah         = 0.5 * (As_adoptar - As_nu)
+
     # Verificación de la biela diagonal
     if ancho_biela_mm is None:
         ancho_biela_mm = min(d * math.sin(theta_rad) * 1000.0, b_mm / 2.0)
@@ -406,6 +417,9 @@ def dimensionar_mensula(
         theta_deg=theta_deg,
         As_principal=As_princ,
         As_total=As_total,
+        As_min=As_min,
+        As_adoptar=As_adoptar,
+        Ah=Ah,
         sigma_biela=sigma_biela,
         phi_fce=phi_fce,
         verifica_biela=ver_biela,

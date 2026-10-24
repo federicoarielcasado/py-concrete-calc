@@ -11,9 +11,10 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtCore import Qt
 
 from app.widgets.canvas_mpl import CanvasMatplotlib
-from app.widgets.panel_crt import PanelCRT
+from app.widgets.panel_resultados import PanelResultados
 from app.widgets.selector_materiales import SelectorMateriales
 from app.widgets.selector_seccion import SelectorSeccion
+from app.widgets.entradas import con_scroll, instalar_validadores, validar_campos
 
 
 class VentanaViga(QWidget):
@@ -22,13 +23,14 @@ class VentanaViga(QWidget):
         super().__init__(parent)
         self._resultado = None
         self._setup_ui()
+        instalar_validadores(self)
 
     def _setup_ui(self) -> None:
         root = QVBoxLayout(self)
         root.setContentsMargins(0, 0, 0, 0)
         root.setSpacing(0)
 
-        titulo = QLabel('MÓDULO-05 / VIGA  —  SIMPLE / VOLADIZO / CONTINUA')
+        titulo = QLabel('V-05  ·  Vigas — simple, voladizo y continua')
         titulo.setObjectName('modulo_titulo')
         root.addWidget(titulo)
 
@@ -43,7 +45,7 @@ class VentanaViga(QWidget):
         hl = QHBoxLayout(content)
         hl.setContentsMargins(8, 8, 8, 8)
         hl.setSpacing(0)
-        hl.addWidget(self._panel_entrada())
+        hl.addWidget(con_scroll(self._panel_entrada()))
 
         sep = QFrame()
         sep.setFrameShape(QFrame.Shape.VLine)
@@ -88,7 +90,7 @@ class VentanaViga(QWidget):
         self._stack.addWidget(self._panel_continua())
         lay.addWidget(self._stack)
 
-        self.btn_calc = QPushButton('EJECUTAR PROTOCOLO V-05')
+        self.btn_calc = QPushButton('Calcular')
         self.btn_calc.setObjectName('btn_calcular')
         self.btn_calc.clicked.connect(self._ejecutar)
         lay.addWidget(self.btn_calc)
@@ -182,10 +184,9 @@ class VentanaViga(QWidget):
         lay.setContentsMargins(8, 0, 0, 0)
         lay.setSpacing(4)
 
-        self.crt = PanelCRT()
-        self.crt.setFixedHeight(200)
-        self.crt.mostrar_bienvenida('V-05 VIGA')
-        lay.addWidget(self.crt)
+        self.panel_res = PanelResultados()
+        self.panel_res.mostrar_bienvenida('V-05 · VIGAS')
+        lay.addWidget(self.panel_res)
 
         self.canvas = CanvasMatplotlib()
         lay.addWidget(self.canvas, stretch=1)
@@ -220,6 +221,8 @@ class VentanaViga(QWidget):
         self._stack.setCurrentIndex(idx)
 
     def _ejecutar(self) -> None:
+        if not validar_campos(self):
+            return
         idx = self.combo_tipo.currentIndex()
         if idx == 0:
             self._ejecutar_simple()
@@ -240,11 +243,11 @@ class VentanaViga(QWidget):
 
             r = VigaSimple(sec, L=L, wD=wD, wL=wL).calcular()
             self._resultado = r
-            self.crt.mostrar_resultado_viga(r)
+            self.panel_res.mostrar_resultado_viga(r)
             self._actualizar_canvas_iso(r)
 
         except Exception as e:
-            self.crt.mostrar_error(str(e))
+            self.panel_res.mostrar_error(str(e))
 
     def _ejecutar_voladizo(self) -> None:
         from elementos.viga import VigaVoladizo
@@ -260,11 +263,11 @@ class VentanaViga(QWidget):
 
             r = VigaVoladizo(sec, L=L, wD=wD, wL=wL, PD=PD, PL=PL).calcular()
             self._resultado = r
-            self.crt.mostrar_resultado_viga(r)
+            self.panel_res.mostrar_resultado_viga(r)
             self._actualizar_canvas_iso(r)
 
         except Exception as e:
-            self.crt.mostrar_error(str(e))
+            self.panel_res.mostrar_error(str(e))
 
     def _ejecutar_continua(self) -> None:
         from elementos.viga import VigaContinua
@@ -280,11 +283,11 @@ class VentanaViga(QWidget):
 
             r = VigaContinua(sec, ln=ln, wD=wD, wL=wL, n_tramos=n, extremo=ext).calcular()
             self._resultado = r
-            self.crt.mostrar_resultado_viga_continua(r)
+            self.panel_res.mostrar_resultado_viga_continua(r)
             self._actualizar_canvas_continua(r)
 
         except Exception as e:
-            self.crt.mostrar_error(str(e))
+            self.panel_res.mostrar_error(str(e))
 
     def _actualizar_canvas_iso(self, r) -> None:
         from graficos import graficar_viga

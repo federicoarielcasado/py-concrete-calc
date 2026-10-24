@@ -58,7 +58,7 @@ class SelectorMateriales(QGroupBox):
         hl.setSpacing(4)
         hl.addWidget(self._combo_horm)
         hl.addWidget(self._campo_fc)
-        form.addRow("HORMIGÓN:", hw)
+        form.addRow("Hormigón:", hw)
 
         # Acero
         self._combo_acero = QComboBox()
@@ -83,7 +83,7 @@ class SelectorMateriales(QGroupBox):
         al.setSpacing(4)
         al.addWidget(self._combo_acero)
         al.addWidget(self._campo_fy)
-        form.addRow("ACERO:", aw)
+        form.addRow("Acero:", aw)
 
     def _cambiar_hormigon(self, nombre: str) -> None:
         self._campo_fc.setVisible(nombre == 'Personalizado')

@@ -12,8 +12,9 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtCore import Qt
 
 from app.widgets.canvas_mpl import CanvasMatplotlib
-from app.widgets.panel_crt import PanelCRT
+from app.widgets.panel_resultados import PanelResultados
 from app.widgets.selector_materiales import SelectorMateriales
+from app.widgets.entradas import con_scroll, instalar_validadores, validar_campos
 
 
 class VentanaLosas(QWidget):
@@ -22,13 +23,14 @@ class VentanaLosas(QWidget):
         super().__init__(parent)
         self._resultado = None
         self._setup_ui()
+        instalar_validadores(self)
 
     def _setup_ui(self) -> None:
         root = QVBoxLayout(self)
         root.setContentsMargins(0, 0, 0, 0)
         root.setSpacing(0)
 
-        titulo = QLabel('MÓDULO-04 / LOSA  —  1 Y 2 DIRECCIONES')
+        titulo = QLabel('L-04  ·  Losas en 1 y 2 direcciones')
         titulo.setObjectName('modulo_titulo')
         root.addWidget(titulo)
 
@@ -43,7 +45,7 @@ class VentanaLosas(QWidget):
         hl = QHBoxLayout(content)
         hl.setContentsMargins(8, 8, 8, 8)
         hl.setSpacing(0)
-        hl.addWidget(self._panel_entrada())
+        hl.addWidget(con_scroll(self._panel_entrada()))
 
         sep = QFrame()
         sep.setFrameShape(QFrame.Shape.VLine)
@@ -87,7 +89,7 @@ class VentanaLosas(QWidget):
         self._stack_tipo.addWidget(self._panel_2dir())
         lay.addWidget(self._stack_tipo)
 
-        self.btn_calc = QPushButton('EJECUTAR PROTOCOLO L-04')
+        self.btn_calc = QPushButton('Calcular')
         self.btn_calc.setObjectName('btn_calcular')
         self.btn_calc.clicked.connect(self._ejecutar)
         lay.addWidget(self.btn_calc)
@@ -117,7 +119,7 @@ class VentanaLosas(QWidget):
             'Mínimo CIRSOC art. 7.7: 0.019 m (interior), 0.025 m (exterior)<br>'
             '<i>rec = rec_hormigón + d_barra/2 ≈ 0.020–0.030 m</i>'
         )
-        self.entrada_ln = QLineEdit('4.50')
+        self.entrada_ln = QLineEdit('4.00')
         self.entrada_ln.setToolTip(
             '<b>ln</b> — luz libre entre caras de apoyos [m]<br>'
             'Art. 8.3.3: todos los tramos deben tener longitudes aproximadamente iguales<br>'
@@ -250,10 +252,9 @@ class VentanaLosas(QWidget):
         lay.setContentsMargins(8, 0, 0, 0)
         lay.setSpacing(4)
 
-        self.crt = PanelCRT()
-        self.crt.setFixedHeight(230)
-        self.crt.mostrar_bienvenida('L-04 LOSA')
-        lay.addWidget(self.crt)
+        self.panel_res = PanelResultados()
+        self.panel_res.mostrar_bienvenida('L-04 · LOSAS')
+        lay.addWidget(self.panel_res)
 
         self.canvas = CanvasMatplotlib()
         lay.addWidget(self.canvas, stretch=1)
@@ -281,7 +282,7 @@ class VentanaLosas(QWidget):
         self.combo_tipo_losa.setCurrentIndex(d.get('tipo_losa', 0))
         self.entrada_h.setText(d.get('h', '0.20'))
         self.entrada_rec.setText(d.get('rec', '0.025'))
-        self.entrada_ln.setText(d.get('ln', '4.50'))
+        self.entrada_ln.setText(d.get('ln', '4.00'))
         self.entrada_wD.setText(d.get('wD', '5.0'))
         self.entrada_wL.setText(d.get('wL', '3.0'))
         self.spin_tramos.setValue(d.get('tramos', 3))
@@ -299,6 +300,8 @@ class VentanaLosas(QWidget):
         self._stack_tipo.setCurrentIndex(idx)
 
     def _ejecutar(self) -> None:
+        if not validar_campos(self):
+            return
         if self.combo_tipo_losa.currentIndex() == 0:
             self._ejecutar_1dir()
         else:
@@ -322,12 +325,12 @@ class VentanaLosas(QWidget):
                 wD=wD, wL=wL, ln=ln, n_tramos=n, extremo=ext,
             ).calcular()
             self._resultado = r
-            self.crt.mostrar_resultado_losa(r)
+            self.panel_res.mostrar_resultado_losa(r)
             from graficos import graficar_losa_1dir
             self.canvas.mostrar_figura(graficar_losa_1dir(r))
 
         except Exception as e:
-            self.crt.mostrar_error(str(e))
+            self.panel_res.mostrar_error(str(e))
 
     def _ejecutar_2dir(self) -> None:
         from hormigon.losas import calcular_losa_2dir
@@ -351,9 +354,9 @@ class VentanaLosas(QWidget):
                 wu=wu, tipo_a=tipo_a, tipo_b=tipo_b,
             )
             self._resultado = r
-            self.crt.mostrar_resultado_losa_2dir(r)
+            self.panel_res.mostrar_resultado_losa_2dir(r)
             from graficos import graficar_losa_2dir
             self.canvas.mostrar_figura(graficar_losa_2dir(r))
 
         except Exception as e:
-            self.crt.mostrar_error(str(e))
+            self.panel_res.mostrar_error(str(e))

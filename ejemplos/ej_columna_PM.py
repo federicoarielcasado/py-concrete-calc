@@ -59,7 +59,8 @@ diag = r.diagrama
 print(f"  φPn_max  = {diag.phi_Pn_max:.1f} kN")
 print(f"  φPn_bal  = {diag.phi_Pn_bal:.1f} kN")
 print(f"  φMn_bal  = {diag.phi_Mn_bal:.1f} kNm")
-print(f"  φPn_0    = {diag.phi_Pn_0:.1f} kN   (tracción pura)")
+print(f"  Pn_0     = {diag.Pn_0:.1f} kN   (compresión pura, nominal)")
+print(f"  φPn_t    = {min(p.phi_Pn for p in diag.puntos):.1f} kN   (tracción pura)")
 
 fig = r.graficar()
 fig.suptitle("Columna P+M — Diagrama de interacción φP-φM", fontsize=10)

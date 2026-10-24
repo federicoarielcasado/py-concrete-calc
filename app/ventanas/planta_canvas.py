@@ -11,9 +11,28 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtCore import Qt
 
 from app.widgets.canvas_planta import PlantaScene, PlantaView, PanelProps
-from app.widgets.panel_crt import PanelCRT
+from app.widgets.panel_resultados import PanelResultados
 from app.widgets.visor_3d import VisorPlotly3D
 from app.widgets.selector_materiales import SelectorMateriales
+from app.widgets.entradas import con_scroll
+
+def _figura_compacta(fig):
+    """Copia de la figura 3D adaptada al panel lateral (sin título, rótulos chicos)."""
+    import plotly.graph_objects as go
+    f = go.Figure(fig)
+    # Los rótulos no entran en el panel; los valores están en el CRT y en la vista ampliada
+    f.update_traces(visible=False, selector=dict(type='scatter3d', mode='text'))
+    f.update_layout(
+        title=None,
+        font=dict(size=9),
+        margin=dict(l=0, r=0, t=0, b=0),
+        legend=dict(orientation='h', x=0, y=0, font=dict(size=9),
+                    bgcolor='rgba(255,255,255,0.6)'),
+        scene_camera=dict(eye=dict(x=1.6, y=-2.3, z=1.6)),
+        scene=dict(xaxis_title='', yaxis_title='', zaxis_title=''),
+    )
+    return f
+
 
 # Mapas fc → nombre de combo y fy → nombre de combo
 _FC_NOMBRES = {17: 'H17', 21: 'H21', 25: 'H25', 30: 'H30', 35: 'H35', 40: 'H40'}
@@ -49,6 +68,7 @@ class VentanaPlantaCanvas(QWidget):
     def __init__(self, parent: QWidget | None = None):
         super().__init__(parent)
         self._planta      = None
+        self._fig3d       = None
         self._propagacion = None
         self._setup_ui()
 
@@ -59,13 +79,13 @@ class VentanaPlantaCanvas(QWidget):
         root.setContentsMargins(0, 0, 0, 0)
         root.setSpacing(0)
 
-        titulo = QLabel('MÓDULO-09 / PLANTA  —  EDITOR VISUAL DE PLANTA ESTRUCTURAL')
+        titulo = QLabel('E-09  ·  Planta estructural')
         titulo.setObjectName('modulo_titulo')
         root.addWidget(titulo)
 
         sub = QLabel(
             'Punto de partida para estructuras completas — modelar la planta con drag & drop y propagar '
-            'cargas gravitacionales  ·  Alimenta: V-05 y P-03 automáticamente (botón ABRIR EN MÓDULO)'
+            'cargas gravitacionales  ·  Alimenta: V-05 y P-03 automáticamente (botón Abrir en módulo)'
         )
         sub.setObjectName('modulo_subtitulo')
         root.addWidget(sub)
@@ -75,14 +95,15 @@ class VentanaPlantaCanvas(QWidget):
         hl.setContentsMargins(4, 4, 4, 4)
         hl.setSpacing(4)
 
-        hl.addWidget(self._panel_izq(), 0)
+        self._scene = PlantaScene()
+        self._view  = PlantaView(self._scene)
+        self._scene.modelo_listo.connect(self._on_modelo_listo)
+
+        hl.addWidget(con_scroll(self._panel_izq()), 0)
 
         sep = QFrame(); sep.setFrameShape(QFrame.Shape.VLine)
         hl.addWidget(sep)
 
-        self._scene = PlantaScene()
-        self._view  = PlantaView(self._scene)
-        self._scene.modelo_listo.connect(self._on_modelo_listo)
         hl.addWidget(self._view, 1)
 
         sep2 = QFrame(); sep2.setFrameShape(QFrame.Shape.VLine)
@@ -96,7 +117,7 @@ class VentanaPlantaCanvas(QWidget):
     # ── Panel izquierdo: configuracion ───────────────────────────────────────
 
     def _panel_izq(self) -> QWidget:
-        w = QWidget(); w.setFixedWidth(210)
+        w = QWidget(); w.setFixedWidth(230)
         lay = QVBoxLayout(w)
         lay.setContentsMargins(0, 0, 4, 0)
         lay.setSpacing(6)
@@ -150,6 +171,27 @@ class VentanaPlantaCanvas(QWidget):
         fs.addRow('H piso:', self.spn_he)
 
         lay.addWidget(grp_s)
+
+        grp_p = QGroupBox('PLANTA')
+        vp = QVBoxLayout(grp_p)
+        vp.setSpacing(4)
+        btn_ej = QPushButton('Cargar ejemplo')
+        btn_ej.setToolTip('Planta de ejemplo: 3 × 2 paños de losa (14 m × 9 m)')
+        btn_ej.clicked.connect(self.cargar_ejemplo)
+        btn_fit = QPushButton('Encuadrar')
+        btn_fit.setToolTip('Ajustar el zoom a toda la planta')
+        btn_fit.clicked.connect(self._view.encuadrar)
+        btn_clr = QPushButton('Limpiar')
+        btn_clr.setToolTip('Borrar todos los paneles')
+        btn_clr.clicked.connect(self._limpiar)
+        self.btn_3d = QPushButton('Ver 3D ampliado')
+        self.btn_3d.setToolTip('Abrir el modelo 3D en una ventana grande (disponible tras PROPAGAR)')
+        self.btn_3d.setEnabled(False)
+        self.btn_3d.clicked.connect(self._ver_3d_ampliado)
+        for b in (btn_ej, btn_fit, btn_clr, self.btn_3d):
+            vp.addWidget(b)
+        lay.addWidget(grp_p)
+
         lay.addStretch()
         return w
 
@@ -163,10 +205,10 @@ class VentanaPlantaCanvas(QWidget):
 
         spl = QSplitter(Qt.Orientation.Vertical)
         self.visor = VisorPlotly3D()
-        self.crt   = PanelCRT()
-        self.crt.mostrar_bienvenida('E-09 PLANTA')
+        self.panel_res   = PanelResultados()
+        self.panel_res.mostrar_bienvenida('E-09 · PLANTA ESTRUCTURAL')
         spl.addWidget(self.visor)
-        spl.addWidget(self.crt)
+        spl.addWidget(self.panel_res)
         spl.setSizes([370, 180])
 
         lay.addWidget(spl, 1)
@@ -188,9 +230,9 @@ class VentanaPlantaCanvas(QWidget):
         self.combo_env_tipo.currentIndexChanged.connect(self._actualizar_ids)
 
         self.combo_env_id = QComboBox()
-        self.combo_env_id.setToolTip('ID del elemento — disponible después de PROPAGAR CARGAS')
+        self.combo_env_id.setToolTip('ID del elemento — disponible después de Propagar cargas')
 
-        btn_env = QPushButton('ABRIR EN MÓDULO  →')
+        btn_env = QPushButton('Abrir en módulo  →')
         btn_env.setObjectName('btn_calcular')
         btn_env.setToolTip(
             'Pre-llena el módulo de cálculo con los datos del elemento seleccionado\n'
@@ -222,12 +264,88 @@ class VentanaPlantaCanvas(QWidget):
         self._lbl_conteo.setObjectName('status_label')
         hl.addWidget(self._lbl_conteo)
 
-        self.btn_prop = QPushButton('PROPAGAR CARGAS  [E-09]')
+        self.btn_prop = QPushButton('Propagar cargas')
         self.btn_prop.setObjectName('btn_calcular')
         self.btn_prop.clicked.connect(self._ejecutar)
         hl.addWidget(self.btn_prop)
 
         return w
+
+    # ── Planta: ejemplo, limpieza y sesión ───────────────────────────────────
+
+    _EJEMPLO = [  # (x0, y0, x1, y1) en metros
+        (0, 0, 5, 4.5), (5, 0, 10, 4.5), (10, 0, 14, 4.5),
+        (0, 4.5, 5, 9), (5, 4.5, 10, 9), (10, 4.5, 14, 9),
+    ]
+
+    def showEvent(self, event) -> None:
+        super().showEvent(event)
+        # La primera vez se abre con la planta de ejemplo (la vista ya tiene tamaño)
+        if not getattr(self, '_mostrado', False):
+            self._mostrado = True
+            if not self._scene._panels:
+                self.cargar_ejemplo()
+
+    def cargar_ejemplo(self) -> None:
+        self._sync_defaults()
+        props = self._view._default_props
+        self._scene.importar([
+            {'x0': x0, 'y0': y0, 'x1': x1, 'y1': y1, 'props': vars(props)}
+            for x0, y0, x1, y1 in self._EJEMPLO
+        ])
+        self._invalidar_resultados()
+        self._view.encuadrar()
+
+    def _limpiar(self) -> None:
+        self._scene.limpiar()
+        self._invalidar_resultados()
+
+    def _invalidar_resultados(self) -> None:
+        self._planta = None
+        self._propagacion = None
+        self.combo_env_id.clear()
+        self.visor.limpiar()
+        self._fig3d = None
+        self.btn_3d.setEnabled(False)
+        self.panel_res.mostrar_bienvenida('E-09 · PLANTA ESTRUCTURAL')
+
+    def _ver_3d_ampliado(self) -> None:
+        if self._fig3d is None:
+            return
+        from PyQt6.QtWidgets import QDialog
+        dlg = getattr(self, '_dlg_3d', None)
+        if dlg is None:
+            dlg = self._dlg_3d = QDialog(self)
+            dlg.setWindowTitle('E-09 / PLANTA  —  MODELO 3D')
+            dlg.resize(1100, 720)
+            lay = QVBoxLayout(dlg)
+            lay.setContentsMargins(0, 0, 0, 0)
+            dlg.visor = VisorPlotly3D()
+            lay.addWidget(dlg.visor)
+        import plotly.graph_objects as go
+        fig = go.Figure(self._fig3d)
+        fig.update_layout(scene_camera=dict(eye=dict(x=1.25, y=-1.75, z=1.15)))
+        dlg.visor.mostrar_figura(fig)
+        dlg.show()
+        dlg.raise_()
+
+    def get_estado(self) -> dict:
+        return {
+            'materiales': self.sel_mat.get_datos(),
+            'paneles':    self._scene.exportar(),
+            'viga':    [self.spn_bv.value(), self.spn_hv.value()],
+            'columna': [self.spn_bc.value(), self.spn_hc.value(), self.spn_he.value()],
+        }
+
+    def set_estado(self, d: dict) -> None:
+        self.sel_mat.set_datos(d.get('materiales', {}))
+        bv, hv = d.get('viga', [0.25, 0.50])
+        bc, hc, he = d.get('columna', [0.30, 0.30, 3.0])
+        self.spn_bv.setValue(bv); self.spn_hv.setValue(hv)
+        self.spn_bc.setValue(bc); self.spn_hc.setValue(hc); self.spn_he.setValue(he)
+        self._scene.importar(d.get('paneles', []))
+        self._invalidar_resultados()
+        self._view.encuadrar()
 
     # ── Señales y logica ──────────────────────────────────────────────────────
 
@@ -266,10 +384,10 @@ class VentanaPlantaCanvas(QWidget):
                 horm, acer, sec_v, sec_c, self.spn_he.value())
 
             if planta is None:
-                self.crt.mostrar_error('No hay paneles en la planta.')
+                self.panel_res.mostrar_error('No hay paneles en la planta.')
                 return
             if not planta.columnas:
-                self.crt.mostrar_error(
+                self.panel_res.mostrar_error(
                     'Sin columnas — asignar vigas en los bordes de las losas.')
                 return
 
@@ -277,18 +395,20 @@ class VentanaPlantaCanvas(QWidget):
             self._planta      = planta
             self._propagacion = propagar(planta)
 
-            self.crt.mostrar_resultado_propagacion(self._propagacion)
+            self.panel_res.mostrar_resultado_propagacion(self._propagacion)
             self._actualizar_ids()
 
             from graficos.modelo_3d import visualizar_planta_3d
             fig = visualizar_planta_3d(
                 planta, propagacion=self._propagacion,
                 titulo='Planta Estructural')
-            self.visor.mostrar_figura(fig)
+            self._fig3d = fig
+            self.visor.mostrar_figura(_figura_compacta(fig))
+            self.btn_3d.setEnabled(True)
 
         except Exception as e:
             import traceback
-            self.crt.mostrar_error(
+            self.panel_res.mostrar_error(
                 f'{type(e).__name__}: {e}\n{traceback.format_exc()[-300:]}')
 
     # ── Envío a módulos ───────────────────────────────────────────────────────
@@ -308,7 +428,7 @@ class VentanaPlantaCanvas(QWidget):
     def _enviar_a_modulo(self):
         """Pre-llena el módulo de cálculo correspondiente y cambia de pestaña."""
         if self._propagacion is None or self._planta is None:
-            self.crt.mostrar_error('Primero ejecutar PROPAGAR CARGAS.')
+            self.panel_res.mostrar_error('Primero presione Propagar cargas.')
             return
 
         tipo    = self.combo_env_tipo.currentText()

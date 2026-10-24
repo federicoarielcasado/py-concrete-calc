@@ -11,6 +11,7 @@ import matplotlib.pyplot as plt
 from matplotlib.patches import FancyBboxPatch
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg
 
+from app.widgets.tema_figuras import FIJO, aplicar_tema_figura
 from PyQt6.QtWidgets import QDialog, QVBoxLayout, QLabel, QPushButton, QHBoxLayout
 from PyQt6.QtCore import Qt
 
@@ -20,39 +21,39 @@ from PyQt6.QtCore import Qt
 _NODOS: dict[str, tuple] = {
     'E09': (6.0, 5.35, 'E-09 / PLANTA',
             'Punto de partida — modelar la planta\ny propagar cargas gravitacionales',
-            '#000080', '#FFFFFF', 2.2, 0.80),
+            '#1F5FAD', '#FFFFFF', 3.1, 0.80),
 
     'L04': (2.0, 3.75, 'L-04 / LOSA',
             'Losas en 1 dir. (coef. art. 8.3.3)\no 2 dir. DDM (art. 13.6)',
-            '#004A20', '#88FF88', 2.0, 0.75),
+            '#2E7D5B', '#FFFFFF', 2.9, 0.75),
 
     'V05': (6.0, 3.75, 'V-05 / VIGA',
             'Simple / voladizo / continua\nArmadura longitudinal + estribos',
-            '#004A20', '#88FF88', 2.0, 0.75),
+            '#2E7D5B', '#FFFFFF', 2.9, 0.75),
 
     'P03': (10.0, 3.75, 'P-03 / COLUMNA',
             'Flexocompresión P+M\nDiagrama de interacción',
-            '#004A20', '#88FF88', 2.0, 0.75),
+            '#2E7D5B', '#FFFFFF', 2.9, 0.75),
 
-    'F01': (1.0, 2.0, 'F-01 / FLEXIÓN',
+    'F01': (1.2, 2.0, 'F-01 / FLEXIÓN',
             'Mu → As (dimensionado)\nAs → φMn (verificación)',
-            '#3A1A00', '#FFAA60', 1.8, 0.70),
+            '#B0661E', '#FFFFFF', 2.2, 0.70),
 
-    'C02': (3.5, 2.0, 'C-02 / CORTE',
+    'C02': (3.6, 2.0, 'C-02 / CORTE',
             'Estribos para resistir Vu\n(art. 11.5)',
-            '#3A1A00', '#FFAA60', 1.8, 0.70),
+            '#B0661E', '#FFFFFF', 2.2, 0.70),
 
     'T06': (6.0, 2.0, 'T-06 / TORSIÓN',
             'Tu + Vu combinados\n(art. 11.6)',
-            '#3A1A00', '#FFAA60', 1.8, 0.70),
+            '#B0661E', '#FFFFFF', 2.2, 0.70),
 
     'B07': (10.0, 2.0, 'B-07 / BASES',
             'Zapata centrada (cap. 15)\nRecibe Pu de P-03',
-            '#220A40', '#CC99FF', 1.8, 0.70),
+            '#6B4FA0', '#FFFFFF', 2.2, 0.70),
 
     'M08': (11.8, 5.35, 'M-08 / MÉNSULA',
             'Bielas y tirantes, a/d < 1\n(art. 10.7 + 11.9)',
-            '#303030', '#C0C0C0', 1.9, 0.70),
+            '#5B6775', '#FFFFFF', 2.3, 0.70),
 }
 
 # ── Aristas: (origen, destino, etiqueta, curvatura) ──────────────────────────
@@ -69,11 +70,11 @@ _ARISTAS = [
 ]
 
 _LEYENDA = [
-    ('#000080', 'E-09 — Modelo global de planta (punto de partida)'),
-    ('#004A20', 'Elementos estructurales principales'),
-    ('#3A1A00', 'Módulos de detalle de sección'),
-    ('#220A40', 'Fundaciones'),
-    ('#303030', 'Elementos especiales'),
+    ('#1F5FAD', 'E-09 — Modelo global de planta (punto de partida)'),
+    ('#2E7D5B', 'Elementos estructurales principales'),
+    ('#B0661E', 'Módulos de detalle de sección'),
+    ('#6B4FA0', 'Fundaciones'),
+    ('#5B6775', 'Elementos especiales'),
 ]
 
 
@@ -96,16 +97,16 @@ def _edge_pt(cx: float, cy: float, tx: float, ty: float,
 
 def _crear_figura() -> plt.Figure:
     fig, ax = plt.subplots(figsize=(13, 6))
-    fig.patch.set_facecolor('#C0C0C0')
-    ax.set_facecolor('#EBEBEB')
+    fig.patch.set_facecolor('#FFFFFF')
+    ax.set_facecolor('#FFFFFF')
     ax.set_xlim(-0.2, 13.5)
     ax.set_ylim(1.2, 6.2)
     ax.axis('off')
 
     ax.set_title(
         'Mapa de flujo de diseño  —  CIRSOC 201-2005',
-        fontsize=11, fontweight='bold', color='#000040',
-        fontfamily='monospace', pad=6,
+        fontsize=11, fontweight='bold', color='#1F2933',
+        pad=6,
     )
 
     # ── Nodos ─────────────────────────────────────────────────────────────────
@@ -114,19 +115,19 @@ def _crear_figura() -> plt.Figure:
         box = FancyBboxPatch(
             (x0, y0), nw, nh,
             boxstyle='round,pad=0.05',
-            facecolor=fc, edgecolor='#101010', linewidth=1.4,
-            zorder=2,
+            facecolor=fc, edgecolor='none', linewidth=0,
+            zorder=2, gid=FIJO,
         )
         ax.add_patch(box)
         # Título en negrita (línea superior)
         ax.text(cx, cy + nh * 0.15, titulo,
                 ha='center', va='center', fontsize=8.5,
-                fontweight='bold', color=tc, fontfamily='monospace', zorder=3)
+                fontweight='bold', color=tc, zorder=3, gid=FIJO)
         # Descripción (línea inferior, más pequeña)
         ax.text(cx, cy - nh * 0.22, desc,
-                ha='center', va='center', fontsize=6.5,
-                color=tc, fontfamily='monospace', zorder=3,
-                linespacing=1.3)
+                ha='center', va='center', fontsize=6.2,
+                color=tc, zorder=3,
+                linespacing=1.3, gid=FIJO)
 
     # ── Aristas ───────────────────────────────────────────────────────────────
     for src, dst, label, rad in _ARISTAS:
@@ -149,7 +150,7 @@ def _crear_figura() -> plt.Figure:
         mx, my = (x0 + x1) / 2, (y0 + y1) / 2
         ax.text(mx, my, f' {label} ',
                 ha='center', va='center', fontsize=6.5,
-                color='#101010', fontfamily='monospace', zorder=4,
+                color='#101010', zorder=4,
                 bbox=dict(boxstyle='round,pad=0.15', facecolor='#D8D8C8',
                           edgecolor='#A0A0A0', linewidth=0.5, alpha=0.9))
 
@@ -158,7 +159,6 @@ def _crear_figura() -> plt.Figure:
         'Elemento especial\n(independiente del\nflujo principal)',
         xy=(11.8, 4.95), xytext=(11.8, 4.55),
         ha='center', va='top', fontsize=6, color='#505050',
-        fontfamily='monospace',
         arrowprops=dict(arrowstyle='->', color='#808080', lw=0.8),
         zorder=4,
     )
@@ -169,12 +169,12 @@ def _crear_figura() -> plt.Figure:
         y = 0.06 - (i // 3) * 0.055
         patch = FancyBboxPatch((x, y), 0.02, 0.03,
                                boxstyle='round,pad=0.005',
-                               facecolor=color, edgecolor='#101010',
+                               facecolor=color, edgecolor='none',
                                linewidth=0.8, transform=fig.transFigure,
-                               zorder=5, clip_on=False)
+                               zorder=5, clip_on=False, gid=FIJO)
         fig.add_artist(patch)
-        fig.text(x + 0.025, y + 0.015, texto, va='center',
-                 fontsize=6.5, color='#101010', fontfamily='monospace')
+        fig.text(x + 0.032, y + 0.015, texto, va='center',
+                 fontsize=6.5, color='#101010')
 
     fig.tight_layout(rect=[0, 0.10, 1, 1])
     return fig
@@ -187,16 +187,17 @@ class MapaFlujo(QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setWindowTitle('Mapa de flujo de diseño  —  CIRSOC 201-2005')
-        self.setMinimumSize(1000, 520)
+        self.setMinimumSize(1240, 620)
         self.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose, False)
 
         lay = QVBoxLayout(self)
         lay.setContentsMargins(4, 4, 4, 4)
         lay.setSpacing(4)
 
-        fig = _crear_figura()
-        canvas = FigureCanvasQTAgg(fig)
-        lay.addWidget(canvas, 1)
+        self._fig = _crear_figura()
+        self._canvas = FigureCanvasQTAgg(self._fig)
+        lay.addWidget(self._canvas, 1)
+        self.aplicar_tema()
 
         hl = QHBoxLayout()
         lbl = QLabel(
@@ -208,8 +209,13 @@ class MapaFlujo(QDialog):
         lbl.setObjectName('status_label')
         hl.addWidget(lbl, 1)
 
-        btn_cerrar = QPushButton('CERRAR')
+        btn_cerrar = QPushButton('Cerrar')
         btn_cerrar.setFixedWidth(90)
         btn_cerrar.clicked.connect(self.hide)
         hl.addWidget(btn_cerrar)
         lay.addLayout(hl)
+
+    def aplicar_tema(self) -> None:
+        from app.themes import get_tema
+        aplicar_tema_figura(self._fig, get_tema())
+        self._canvas.draw_idle()

@@ -294,7 +294,7 @@ class VarianteCorte:
 
 @dataclass
 class ResultadoSetCorte:
-    """Variantes de estribado rankeadas por economía (mayor separación = menos acero)."""
+    """Variantes de estribado rankeadas por economía (menor Av/s = menos acero por metro)."""
     Vu: float
     Avs_requerido: float
     s_maximo: float
@@ -421,7 +421,8 @@ def calcular_corte_variantes(
     n_ramas: int = 2,
 ) -> ResultadoSetCorte:
     """
-    Retorna variantes de estribado válidas, rankeadas por mayor separación (más económica).
+    Retorna variantes de estribado válidas, rankeadas por menor Av/s (menor peso de acero
+    por metro de viga); a igual Av/s se prefiere la mayor separación.
 
     n_ramas: número de ramas del estribo (normalmente 2).
     """
@@ -490,8 +491,8 @@ def calcular_corte_variantes(
             seen.add(key)
             unicas.append(v)
 
-    # Rankear por mayor separación (más económica = menos acero)
-    unicas.sort(key=lambda v: (-v.s, v.phi))
+    # Rankear por economía: menor Av/s (acero por metro); desempate por mayor separación
+    unicas.sort(key=lambda v: (round(v.Avs, 1), -v.s, v.phi))
     for i, v in enumerate(unicas, 1):
         v.rank = i
 

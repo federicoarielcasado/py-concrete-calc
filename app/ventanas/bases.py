@@ -10,8 +10,9 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtCore import Qt
 
 from app.widgets.canvas_mpl import CanvasMatplotlib
-from app.widgets.panel_crt import PanelCRT
+from app.widgets.panel_resultados import PanelResultados
 from app.widgets.selector_materiales import SelectorMateriales
+from app.widgets.entradas import con_scroll, instalar_validadores, validar_campos
 
 
 class VentanaBases(QWidget):
@@ -20,13 +21,14 @@ class VentanaBases(QWidget):
         super().__init__(parent)
         self._resultado = None
         self._setup_ui()
+        instalar_validadores(self)
 
     def _setup_ui(self) -> None:
         root = QVBoxLayout(self)
         root.setContentsMargins(0, 0, 0, 0)
         root.setSpacing(0)
 
-        titulo = QLabel('MÓDULO-07 / BASES AISLADAS CENTRADAS  —  CAP. 15')
+        titulo = QLabel('B-07  ·  Bases aisladas centradas')
         titulo.setObjectName('modulo_titulo')
         root.addWidget(titulo)
 
@@ -41,7 +43,7 @@ class VentanaBases(QWidget):
         hl = QHBoxLayout(content)
         hl.setContentsMargins(8, 8, 8, 8)
         hl.setSpacing(0)
-        hl.addWidget(self._panel_entrada())
+        hl.addWidget(con_scroll(self._panel_entrada()))
 
         sep = QFrame()
         sep.setFrameShape(QFrame.Shape.VLine)
@@ -136,7 +138,7 @@ class VentanaBases(QWidget):
         form_opt.addRow('L/B ratio:', self.spin_ratio)
         lay.addWidget(grp_opt)
 
-        self.btn_calc = QPushButton('EJECUTAR PROTOCOLO B-07')
+        self.btn_calc = QPushButton('Calcular')
         self.btn_calc.setObjectName('btn_calcular')
         self.btn_calc.clicked.connect(self._ejecutar)
         lay.addWidget(self.btn_calc)
@@ -150,10 +152,9 @@ class VentanaBases(QWidget):
         lay.setContentsMargins(8, 0, 0, 0)
         lay.setSpacing(4)
 
-        self.crt = PanelCRT()
-        self.crt.setFixedHeight(220)
-        self.crt.mostrar_bienvenida('B-07 BASES CENTRADAS')
-        lay.addWidget(self.crt)
+        self.panel_res = PanelResultados()
+        self.panel_res.mostrar_bienvenida('B-07 · BASE AISLADA CENTRADA')
+        lay.addWidget(self.panel_res)
 
         self.canvas = CanvasMatplotlib()
         lay.addWidget(self.canvas, stretch=1)
@@ -184,6 +185,8 @@ class VentanaBases(QWidget):
         self.spin_ratio.setEnabled(state == 0)
 
     def _ejecutar(self) -> None:
+        if not validar_campos(self):
+            return
         from hormigon.bases import dimensionar_base_centrada
         try:
             horm     = self.sel_mat.get_hormigon()
@@ -205,11 +208,11 @@ class VentanaBases(QWidget):
                 L_B_ratio=ratio,
             )
             self._resultado = r
-            self.crt.mostrar_resultado_base(r)
+            self.panel_res.mostrar_resultado_base(r)
             self._actualizar_canvas(r)
 
         except Exception as e:
-            self.crt.mostrar_error(str(e))
+            self.panel_res.mostrar_error(str(e))
 
     def _actualizar_canvas(self, r) -> None:
         from graficos import graficar_base

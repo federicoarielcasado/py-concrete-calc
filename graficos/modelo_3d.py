@@ -156,21 +156,17 @@ def visualizar_planta_3d(
         )
         first_col = False
 
+        rotulo = []
         if mostrar_ids:
-            traces.append(_texto(
-                xc, yc, col.h_entrepiso + 0.05,
-                col.id,
-                color='#2c3e50', size=10,
-                group='col_id',
-            ))
-
+            rotulo.append(col.id)
         if mostrar_cargas and propagacion and col.id in propagacion.cargas_columnas:
-            cc = propagacion.cargas_columnas[col.id]
+            rotulo.append(f'Pu={propagacion.cargas_columnas[col.id].Pu:.0f} kN')
+        if rotulo:
             traces.append(_texto(
-                xc, yc, col.h_entrepiso + 0.28,
-                f'Pu={cc.Pu:.0f} kN',
+                xc, yc, col.h_entrepiso + 0.35,
+                '<br>'.join(rotulo),
                 color=_C_TEXT_COL, size=10,
-                group='col_carga',
+                group='col_id',
             ))
 
     # ── Vigas ────────────────────────────────────────────────────────────────
@@ -187,12 +183,15 @@ def visualizar_planta_3d(
             yc = g.ejes_y[viga.idx]
             y0, y1 = yc - bv / 2, yc + bv / 2
             xm, ym = (x0 + x1) / 2, yc
+            # rótulo en el centro del primer tramo (evita choques en cruces de vigas)
+            xr, yr = (x0 + g.ejes_x[viga.desde + 1]) / 2, yc
         else:   # dir == 'y'
             y0 = g.ejes_y[viga.desde]
             y1 = g.ejes_y[viga.hasta]
             xc = g.ejes_x[viga.idx]
             x0, x1 = xc - bv / 2, xc + bv / 2
             xm, ym = xc, (y0 + y1) / 2
+            xr, yr = xc, (y0 + g.ejes_y[viga.desde + 1]) / 2
 
         traces += _box(
             x0, x1, y0, y1, z_bot, z_top,
@@ -202,21 +201,17 @@ def visualizar_planta_3d(
         )
         first_viga = False
 
+        rotulo = []
         if mostrar_ids:
-            traces.append(_texto(
-                xm, ym, z_top + 0.05,
-                viga.id,
-                color='#6b3a1f', size=9,
-                group='vig_id',
-            ))
-
+            rotulo.append(viga.id)
         if mostrar_cargas and propagacion and viga.id in propagacion.cargas_vigas:
-            cv = propagacion.cargas_vigas[viga.id]
+            rotulo.append(f'wu={propagacion.cargas_vigas[viga.id].wu:.1f} kN/m')
+        if rotulo:
             traces.append(_texto(
-                xm, ym, z_top + 0.22,
-                f'wu={cv.wu:.1f} kN/m',
+                xr, yr, z_top + 0.15,
+                '<br>'.join(rotulo),
                 color=_C_TEXT_VIG, size=9,
-                group='vig_carga',
+                group='vig_id',
             ))
 
     # ── Losas ────────────────────────────────────────────────────────────────

@@ -12,9 +12,10 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtCore import Qt
 
 from app.widgets.canvas_mpl import CanvasMatplotlib
-from app.widgets.panel_crt import PanelCRT
+from app.widgets.panel_resultados import PanelResultados
 from app.widgets.selector_materiales import SelectorMateriales
 from app.widgets.selector_seccion import SelectorSeccion
+from app.widgets.entradas import con_scroll, instalar_validadores, validar_campos
 
 
 class VentanaCorte(QWidget):
@@ -25,13 +26,14 @@ class VentanaCorte(QWidget):
         self._seccion   = None
         self._rset      = None
         self._setup_ui()
+        instalar_validadores(self)
 
     def _setup_ui(self) -> None:
         root = QVBoxLayout(self)
         root.setContentsMargins(0, 0, 0, 0)
         root.setSpacing(0)
 
-        titulo = QLabel('MÓDULO-02 / CORTE  —  DISEÑO DE ESTRIBOS')
+        titulo = QLabel('C-02  ·  Corte — diseño de estribos')
         titulo.setObjectName('modulo_titulo')
         root.addWidget(titulo)
 
@@ -46,7 +48,7 @@ class VentanaCorte(QWidget):
         hl = QHBoxLayout(content)
         hl.setContentsMargins(8, 8, 8, 8)
         hl.setSpacing(0)
-        hl.addWidget(self._panel_entrada())
+        hl.addWidget(con_scroll(self._panel_entrada()))
 
         sep = QFrame()
         sep.setFrameShape(QFrame.Shape.VLine)
@@ -97,12 +99,12 @@ class VentanaCorte(QWidget):
         form.addRow('Ramas estribo:', self.spin_ramas)
         lay.addWidget(grp)
 
-        self.btn_calc = QPushButton('EJECUTAR PROTOCOLO C-02')
+        self.btn_calc = QPushButton('Calcular')
         self.btn_calc.setObjectName('btn_calcular')
         self.btn_calc.clicked.connect(self._ejecutar)
         lay.addWidget(self.btn_calc)
 
-        self.btn_var = QPushButton('VER VARIANTES')
+        self.btn_var = QPushButton('Ver variantes')
         self.btn_var.setEnabled(False)
         self.btn_var.clicked.connect(self._ver_variantes)
         lay.addWidget(self.btn_var)
@@ -116,10 +118,9 @@ class VentanaCorte(QWidget):
         lay.setContentsMargins(8, 0, 0, 0)
         lay.setSpacing(4)
 
-        self.crt = PanelCRT()
-        self.crt.setFixedHeight(190)
-        self.crt.mostrar_bienvenida('C-02 CORTE')
-        lay.addWidget(self.crt)
+        self.panel_res = PanelResultados()
+        self.panel_res.mostrar_bienvenida('C-02 · CORTE')
+        lay.addWidget(self.panel_res)
 
         splitter = QSplitter(Qt.Orientation.Horizontal)
         self.canvas = CanvasMatplotlib()
@@ -141,10 +142,11 @@ class VentanaCorte(QWidget):
         self.tabla.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         self.tabla.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
         self.tabla.setAlternatingRowColors(True)
+        self.tabla.verticalHeader().setVisible(False)
         self.tabla.itemDoubleClicked.connect(self._adoptar_seleccion)
         lay.addWidget(self.tabla)
 
-        self.btn_adoptar = QPushButton('REGISTRAR CONFIGURACIÓN')
+        self.btn_adoptar = QPushButton('Adoptar variante seleccionada')
         self.btn_adoptar.setEnabled(False)
         self.btn_adoptar.clicked.connect(self._adoptar_seleccion)
         lay.addWidget(self.btn_adoptar)
@@ -167,6 +169,8 @@ class VentanaCorte(QWidget):
         self.spin_ramas.setValue(d.get('ramas', 2))
 
     def _ejecutar(self) -> None:
+        if not validar_campos(self):
+            return
         from hormigon.corte import calcular_corte
         try:
             horm = self.sel_mat.get_hormigon()
@@ -179,16 +183,18 @@ class VentanaCorte(QWidget):
             self._resultado = r
             self._seccion   = sec
 
-            self.crt.mostrar_resultado_corte(r)
+            self.panel_res.mostrar_resultado_corte(r)
             self._actualizar_canvas(sec, r)
             self.btn_var.setEnabled(True)
             self.tabla.setRowCount(0)
             self.btn_adoptar.setEnabled(False)
 
         except Exception as e:
-            self.crt.mostrar_error(str(e))
+            self.panel_res.mostrar_error(str(e))
 
     def _ver_variantes(self) -> None:
+        if not validar_campos(self):
+            return
         from hormigon.corte import calcular_corte_variantes
         try:
             horm  = self.sel_mat.get_hormigon()
@@ -204,7 +210,7 @@ class VentanaCorte(QWidget):
             self.btn_adoptar.setEnabled(True)
 
         except Exception as e:
-            self.crt.mostrar_error(str(e))
+            self.panel_res.mostrar_error(str(e))
 
     def _actualizar_canvas(self, sec, r) -> None:
         from graficos import graficar_seccion
@@ -228,5 +234,5 @@ class VentanaCorte(QWidget):
             return
         v = self._rset.variantes[row]
         self._resultado.adoptar(phi=v.phi, n_ramas=v.n_ramas, s=v.s)
-        self.crt.mostrar_resultado_corte(self._resultado)
+        self.panel_res.mostrar_resultado_corte(self._resultado)
         self._actualizar_canvas(self._seccion, self._resultado)

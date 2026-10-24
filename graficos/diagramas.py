@@ -38,7 +38,7 @@ def graficar_interaccion_PM(
     Mn_dis  = [p.phi_Mn for p in pts]
     Pn_dis  = [p.phi_Pn for p in pts]
 
-    fig, ax = plt.subplots(figsize=(6.5, 7.5))
+    fig, ax = plt.subplots(figsize=(6.5, 7.5), layout='constrained')
 
     # Nominal
     ax.plot(Mn_nom, Pn_nom, color='#AAAAAA', lw=1.2, ls='--',
@@ -69,18 +69,13 @@ def graficar_interaccion_PM(
         check    = '✓' if dentro else '✗'
         ax.plot(Mu, Pu, 'o', color=color_pt, markersize=9, zorder=6,
                 label=f'Demanda ({Mu:.0f} kNm, {Pu:.0f} kN)  {check}')
-        ax.annotate(f'  ({Mu:.0f}, {Pu:.0f})', (Mu, Pu),
-                    fontsize=7.5, color=color_pt)
+        ax.annotate(f'({Mu:.0f}, {Pu:.0f})', (Mu, Pu), xytext=(7, 7),
+                    textcoords='offset points', fontsize=7.5, color=color_pt,
+                    bbox=dict(facecolor='white', edgecolor='none', alpha=0.8, pad=1))
 
-    # Anotaciones de zonas
-    x_max = max(max(Mn_dis), max(Mn_nom)) * 1.05
-    y_range = max(max(Pn_nom), phi_Pn_max) - min(Pn_dis)
-    ax.text(x_max * 0.02, phi_Pn_max * 0.50,
-            'Controlada\npor compresión', fontsize=7, color='#555',
-            va='center', style='italic')
-    ax.text(x_max * 0.02, diagrama.phi_Pn_bal * 0.25,
-            'Controlada\npor tracción', fontsize=7, color='#555',
-            va='center', style='italic')
+    # Límite entre zonas: por encima de φPb controla compresión; por debajo, tracción/transición
+    ax.plot([0, diagrama.phi_Mn_bal], [diagrama.phi_Pn_bal] * 2, color='#999', lw=0.8, ls='--',
+            label='φPb: límite compresión / tracción')
 
     ax.set_xlabel('φMn  [kNm]', fontsize=9)
     ax.set_ylabel('φPn  [kN]', fontsize=9)
@@ -90,7 +85,6 @@ def graficar_interaccion_PM(
     ax.grid(True, alpha=0.25)
     ax.tick_params(labelsize=8)
 
-    fig.tight_layout()
     return fig
 
 
@@ -338,101 +332,106 @@ def graficar_viga(resultado) -> plt.Figure:
 
 # ── Tabla de secciones críticas — viga continua ───────────────────────────────
 
-def graficar_viga_continua(resultado) -> plt.Figure:
+def _grafico_secciones_criticas(
+    titulo: str,
+    nombres: list[str],
+    Mu: list[float],
+    phiMn: list[float],
+    colores: list[str],
+    unidad: str,
+    col_headers: list[str],
+    rows: list[list[str]],
+    col_widths: list[float],
+    leyenda: list[tuple[str, str]],
+) -> plt.Figure:
     """
-    Tabla comparativa de secciones críticas de una VigaContinua.
+    Figura común para vigas continuas y losas: barras Mu vs φMn por sección
+    crítica (arriba) y tabla de resultados a todo el ancho (abajo).
     """
-    r         = resultado
-    secciones = r.secciones
-    n         = len(secciones)
+    from matplotlib.patches import Patch
 
-    fig_h = max(3.5, n * 0.55 + 3.0)
-    fig, (ax_bar, ax_tab) = plt.subplots(
-        1, 2, figsize=(9.5, fig_h),
-        gridspec_kw={'width_ratios': [2, 3]},
-    )
+    fig = plt.figure(figsize=(9.5, 6.0))
+    fig.set_layout_engine('none')     # la tabla no es compatible con tight_layout
+    gs = fig.add_gridspec(2, 1, height_ratios=[1.35, 1], hspace=0.38,
+                          left=0.24, right=0.98, top=0.86, bottom=0.03)
+    ax_bar = fig.add_subplot(gs[0])
+    ax_tab = fig.add_subplot(gs[1])
 
-    nombres  = [s.nombre       for s in secciones]
-    Mu_vals  = [s.Mu           for s in secciones]
-    phiMn    = [s.resultado_flex.phi_Mn for s in secciones]
-    colores  = ['#4472C4' if s.signo == 'positivo' else '#C00000'
-                for s in secciones]
-
-    # Barras
-    y_pos = range(n)
-    ax_bar.barh(y_pos, Mu_vals, color=colores, alpha=0.75,
-                edgecolor='white', height=0.55, label='Mu')
-    ax_bar.barh(y_pos, phiMn, color='#70AD47', alpha=0.55,
-                edgecolor='white', height=0.25, label='φMn')
-    ax_bar.set_yticks(list(y_pos))
-    ax_bar.set_yticklabels([s.nombre.split('(')[0].strip() for s in secciones],
-                           fontsize=7.5)
-    ax_bar.set_xlabel('Momento [kNm]', fontsize=8)
-    ax_bar.legend(fontsize=7.5)
+    # Barras agrupadas (sin superposición); se omiten secciones con Mu = 0
+    idx = [k for k, m in enumerate(Mu) if m > 1e-6]
+    n = len(idx)
+    y = list(range(n))[::-1]          # primera sección arriba
+    hb = 0.36
+    for yy, k in zip(y, idx):
+        ax_bar.barh(yy + hb / 2, Mu[k], height=hb, color=colores[k], alpha=0.85)
+        ax_bar.barh(yy - hb / 2, phiMn[k], height=hb, color='#70AD47', alpha=0.85)
+        ratio = Mu[k] / phiMn[k] if phiMn[k] > 0 else float('inf')
+        ax_bar.text(max(Mu[k], phiMn[k]) * 1.01, yy, f' Mu/φMn = {ratio:.2f}',
+                    va='center', fontsize=7.5, color='#222')
+    ax_bar.set_yticks(y)
+    ax_bar.set_yticklabels([nombres[k] for k in idx], fontsize=7.5)
+    xmax = max([max(Mu[k], phiMn[k]) for k in idx], default=1.0)
+    ax_bar.set_xlim(0, xmax * 1.38)
+    ax_bar.set_xlabel(f'Momento [{unidad}]', fontsize=8)
     ax_bar.grid(True, axis='x', alpha=0.3)
     ax_bar.tick_params(labelsize=7.5)
+    ax_bar.legend(handles=[Patch(color=c, alpha=0.85, label=l) for l, c in leyenda]
+                  + [Patch(color='#70AD47', alpha=0.85, label='φMn')],
+                  fontsize=7.5, loc='lower right', bbox_to_anchor=(1.0, 1.0),
+                  ncol=len(leyenda) + 1, frameon=False)
 
     # Tabla
     ax_tab.axis('off')
-    col_headers = ['Sección', 'Signo', 'Mu [kNm]', 'As [cm²]', 'φMn [kNm]', 'OK']
+    tbl = ax_tab.table(cellText=rows, colLabels=col_headers, colWidths=col_widths,
+                       cellLoc='center', bbox=[0, 0, 1, 1])
+    tbl.auto_set_font_size(False)
+    tbl.set_fontsize(8)
+    for (fila, _col), celda in tbl.get_celld().items():
+        celda.set_edgecolor('#808080')
+        if fila == 0:
+            celda.set_facecolor('#D8D8D8')
+            celda.set_text_props(weight='bold')
+        else:
+            celda.set_facecolor('#F4F4F4' if fila % 2 else '#FFFFFF')
+
+    fig.suptitle(titulo, fontsize=9, y=0.975)
+    return fig
+
+
+def graficar_viga_continua(resultado) -> plt.Figure:
+    """Secciones críticas de una VigaContinua: Mu vs φMn + tabla de armaduras."""
+    r    = resultado
+    secs = r.secciones
     rows = [
         [s.nombre,
-         s.signo[0].upper(),
+         '+' if s.signo == 'positivo' else '−',
          f'{s.Mu:.2f}',
          f'{s.resultado_flex.As:.2f}',
          f'{s.resultado_flex.phi_Mn:.2f}',
          '✓' if s.resultado_flex.verifica else '✗']
-        for s in secciones
+        for s in secs
     ]
-    tbl = ax_tab.table(cellText=rows, colLabels=col_headers,
-                       loc='center', cellLoc='center')
-    tbl.auto_set_font_size(False)
-    tbl.set_fontsize(7.5)
-    tbl.scale(1, 1.35)
-    tbl.auto_set_column_width(list(range(len(col_headers))))
-
-    fig.suptitle(
-        f'Viga continua — ln={r.ln:.2f} m  wu={r.wu:.2f} kN/m  '
-        f'({r.n_tramos} tramos, extremo: {r.extremo})',
-        fontsize=9,
+    return _grafico_secciones_criticas(
+        titulo=(f'Viga continua — ln={r.ln:.2f} m  wu={r.wu:.2f} kN/m  '
+                f'({r.n_tramos} tramos, extremo: {r.extremo})'),
+        nombres=[s.nombre for s in secs],
+        Mu=[s.Mu for s in secs],
+        phiMn=[s.resultado_flex.phi_Mn for s in secs],
+        colores=['#4472C4' if s.signo == 'positivo' else '#C00000' for s in secs],
+        unidad='kNm',
+        col_headers=['Sección', 'M', 'Mu [kNm]', 'As [cm²]', 'φMn [kNm]', 'OK'],
+        rows=rows,
+        col_widths=[0.40, 0.07, 0.15, 0.14, 0.16, 0.08],
+        leyenda=[('Mu (+)', '#4472C4'), ('Mu (−)', '#C00000')],
     )
-    fig.tight_layout()
-    return fig
 
 
 # ── Losa en 1 dirección ───────────────────────────────────────────────────────
 
 def graficar_losa_1dir(resultado) -> plt.Figure:
-    """Gráfico de secciones críticas: Mu vs φMn, + temperatura y corte."""
-    r = resultado
+    """Secciones críticas de losa 1 dir.: Mu vs φMn + tabla con temperatura y corte."""
+    r    = resultado
     secs = r.secciones
-    n = len(secs)
-
-    fig_h = max(4.0, n * 0.65 + 3.5)
-    fig, (ax_bar, ax_tab) = plt.subplots(
-        1, 2, figsize=(9.5, fig_h),
-        gridspec_kw={'width_ratios': [2, 3]},
-    )
-
-    nombres = [s.nombre for s in secs]
-    Mu_vals = [s.Mu for s in secs]
-    phiMn   = [s.phi_Mn for s in secs]
-    colores = ['#4472C4' if 'M+' in s.nombre else '#C00000' for s in secs]
-
-    y_pos = range(n)
-    ax_bar.barh(list(y_pos), Mu_vals, color=colores, alpha=0.70,
-                edgecolor='white', height=0.50, label='Mu')
-    ax_bar.barh(list(y_pos), phiMn, color='#70AD47', alpha=0.55,
-                edgecolor='white', height=0.25, label='φMn')
-    ax_bar.set_yticks(list(y_pos))
-    ax_bar.set_yticklabels(nombres, fontsize=7)
-    ax_bar.set_xlabel('Momento [kNm/m]', fontsize=8)
-    ax_bar.legend(fontsize=7.5)
-    ax_bar.grid(True, axis='x', alpha=0.3)
-    ax_bar.tick_params(labelsize=7.5)
-
-    ax_tab.axis('off')
-    col_headers = ['Sección', 'Mu\n[kNm/m]', 'As\n[cm²/m]', 's_max\n[cm]', 'φMn\n[kNm/m]', 'OK']
     rows = [
         [s.nombre,
          f'{s.Mu:.2f}', f'{s.As:.2f}',
@@ -440,65 +439,31 @@ def graficar_losa_1dir(resultado) -> plt.Figure:
          '✓' if s.verifica else '✗']
         for s in secs
     ]
-    rows.append(['Temperatura', '—', f'{r.As_temp:.2f}',
+    rows.append(['Armadura de temperatura', '—', f'{r.As_temp:.2f}',
                  f'{r.s_temp_max*100:.0f}', '—', ''])
-    rows.append(['Corte φVc', f'{r.Vu_max:.1f}', '—', '—',
-                 f'{r.phi_Vc:.1f}', '✓' if r.verifica_corte else '✗'])
-
-    tbl = ax_tab.table(cellText=rows, colLabels=col_headers,
-                       loc='center', cellLoc='center')
-    tbl.auto_set_font_size(False)
-    tbl.set_fontsize(7.5)
-    tbl.scale(1, 1.30)
-
-    fig.suptitle(
-        f'Losa 1 dirección — h={r.h*100:.0f} cm  ln={r.ln:.2f} m  '
-        f'wu={r.wu:.2f} kN/m²  ({r.n_tramos} tramos)',
-        fontsize=9,
+    rows.append([f'Corte  Vu={r.Vu_max:.1f} / φVc={r.phi_Vc:.1f} kN/m', '—', '—', '—', '—',
+                 '✓' if r.verifica_corte else '✗'])
+    return _grafico_secciones_criticas(
+        titulo=(f'Losa 1 dirección — h={r.h*100:.0f} cm  ln={r.ln:.2f} m  '
+                f'wu={r.wu:.2f} kN/m²  ({r.n_tramos} tramos)'),
+        nombres=[s.nombre for s in secs],
+        Mu=[s.Mu for s in secs],
+        phiMn=[s.phi_Mn for s in secs],
+        colores=['#4472C4' if 'M+' in s.nombre else '#C00000' for s in secs],
+        unidad='kNm/m',
+        col_headers=['Sección', 'Mu [kNm/m]', 'As [cm²/m]', 's_max [cm]', 'φMn [kNm/m]', 'OK'],
+        rows=rows,
+        col_widths=[0.40, 0.13, 0.13, 0.12, 0.14, 0.08],
+        leyenda=[('Mu (+)', '#4472C4'), ('Mu (−)', '#C00000')],
     )
-    fig.tight_layout()
-    return fig
 
 
 # ── Losa 2 direcciones (DDM) ─────────────────────────────────────────────────
 
 def graficar_losa_2dir(resultado) -> plt.Figure:
-    """Gráfico de secciones críticas para losa en 2 direcciones (DDM art. 13.6)."""
-    r = resultado
+    """Secciones críticas de losa en 2 direcciones (DDM art. 13.6)."""
+    r    = resultado
     secs = [s for s in r.secciones if s.Mu > 1e-6]
-    n = len(secs)
-
-    fig_h = max(4.5, n * 0.65 + 3.5)
-    fig, (ax_bar, ax_tab) = plt.subplots(
-        1, 2, figsize=(9.5, fig_h),
-        gridspec_kw={'width_ratios': [2, 3]},
-    )
-
-    colores = ['#4472C4' if s.direccion == 'a' else '#E87800' for s in secs]
-    Mu_vals = [s.Mu   for s in secs]
-    phiMn   = [s.phi_Mn for s in secs]
-
-    y_pos = list(range(n))
-    ax_bar.barh(y_pos, Mu_vals, color=colores, alpha=0.70, edgecolor='white', height=0.50)
-    ax_bar.barh(y_pos, phiMn,   color='#70AD47', alpha=0.55, edgecolor='white', height=0.25)
-    ax_bar.set_yticks(y_pos)
-    ax_bar.set_yticklabels([s.nombre for s in secs], fontsize=6.5)
-    ax_bar.set_xlabel('Momento [kNm/m]', fontsize=8)
-    ax_bar.grid(True, axis='x', alpha=0.3)
-    ax_bar.tick_params(labelsize=7.5)
-
-    from matplotlib.patches import Patch
-    ax_bar.legend(
-        handles=[
-            Patch(color='#4472C4', alpha=0.7, label='Dir. a (corta)'),
-            Patch(color='#E87800', alpha=0.7, label='Dir. b (larga)'),
-            Patch(color='#70AD47', alpha=0.55, label='φMn'),
-        ],
-        fontsize=6.5, loc='lower right',
-    )
-
-    ax_tab.axis('off')
-    col_headers = ['Sección', 'Dir', 'Mu\n[kNm/m]', 'As\n[cm²/m]', 's_max\n[cm]', 'φMn\n[kNm/m]', 'OK']
     rows = [
         [s.nombre, s.direccion,
          f'{s.Mu:.2f}', f'{s.As:.2f}',
@@ -506,21 +471,22 @@ def graficar_losa_2dir(resultado) -> plt.Figure:
          '✓' if s.verifica else '✗']
         for s in secs
     ]
-    rows.append(['Temperatura', '—', '—', f'{r.As_temp:.2f}',
+    rows.append(['Armadura de temperatura', '—', '—', f'{r.As_temp:.2f}',
                  f'{r.s_temp_max*100:.0f}', '—', ''])
-
-    tbl = ax_tab.table(cellText=rows, colLabels=col_headers, loc='center', cellLoc='center')
-    tbl.auto_set_font_size(False)
-    tbl.set_fontsize(7.0)
-    tbl.scale(1, 1.30)
-
-    fig.suptitle(
-        f'Losa 2 direcciones DDM — h={r.h*100:.0f} cm  '
-        f'la={r.la:.2f} m  lb={r.lb:.2f} m  m={r.m:.2f}  wu={r.wu:.2f} kN/m²',
-        fontsize=9,
+    return _grafico_secciones_criticas(
+        titulo=(f'Losa 2 direcciones DDM — h={r.h*100:.0f} cm  '
+                f'la={r.la:.2f} m  lb={r.lb:.2f} m  m={r.m:.2f}  wu={r.wu:.2f} kN/m²'),
+        nombres=[s.nombre for s in secs],
+        Mu=[s.Mu for s in secs],
+        phiMn=[s.phi_Mn for s in secs],
+        colores=['#4472C4' if s.direccion == 'a' else '#E87800' for s in secs],
+        unidad='kNm/m',
+        col_headers=['Sección', 'Dir', 'Mu [kNm/m]', 'As [cm²/m]', 's_max [cm]',
+                     'φMn [kNm/m]', 'OK'],
+        rows=rows,
+        col_widths=[0.36, 0.06, 0.13, 0.12, 0.11, 0.14, 0.08],
+        leyenda=[('Mu dir. a (corta)', '#4472C4'), ('Mu dir. b (larga)', '#E87800')],
     )
-    fig.tight_layout()
-    return fig
 
 
 # ── Torsión + corte combinados ────────────────────────────────────────────────
@@ -587,7 +553,8 @@ def graficar_base(resultado) -> plt.Figure:
     """Planta esquemática de la base + tabla de verificaciones."""
     import numpy as np
     r = resultado
-    fig, (ax_planta, ax_tab) = plt.subplots(1, 2, figsize=(9.5, 5))
+    fig, (ax_planta, ax_tab) = plt.subplots(
+        1, 2, figsize=(9.5, 5), gridspec_kw={'width_ratios': [1, 1.25]})
 
     # Planta
     ax = ax_planta
@@ -626,10 +593,10 @@ def graficar_base(resultado) -> plt.Figure:
     ]
     tbl = ax2.table(cellText=rows,
                     colLabels=['Verificación', 'Actuante', 'Resistente', 'OK'],
-                    loc='center', cellLoc='center')
+                    colWidths=[0.30, 0.28, 0.32, 0.10],
+                    cellLoc='center', bbox=[0, 0.22, 1, 0.56])
     tbl.auto_set_font_size(False)
-    tbl.set_fontsize(8.5)
-    tbl.scale(1, 1.6)
+    tbl.set_fontsize(8)
     ax2.set_title('Verificaciones', fontsize=9)
 
     fig.suptitle(
@@ -647,47 +614,68 @@ def graficar_mensula(resultado) -> plt.Figure:
     import numpy as np
     r = resultado
 
-    fig, (ax_esq, ax_tab) = plt.subplots(1, 2, figsize=(9.5, 5))
+    fig, (ax_esq, ax_tab) = plt.subplots(
+        1, 2, figsize=(9.5, 5), gridspec_kw={'width_ratios': [1.15, 1]})
 
-    # Esquema geométrico
+    # Esquema geométrico: cara de la columna en x=0, borde inferior de la ménsula en y=0
     ax = ax_esq
     ax.set_aspect('equal')
     ax.axis('off')
 
-    # Columna (izquierda)
-    ax.add_patch(plt.Rectangle((0, 0), 0.20, r.d * 1.15,
-                               facecolor='#DCDCDC', edgecolor='#404040', lw=1.5))
-    # Ménsula
-    ax.add_patch(plt.Rectangle((0.20, r.d * 0.15), r.a, r.d,
-                               facecolor='#DCDCDC', edgecolor='#404040', lw=1.5))
+    d, a = r.d, r.a
+    h  = 1.12 * d                 # altura de la ménsula en la cara
+    L  = a + 0.35 * d             # vuelo de la ménsula
+    bc = 0.60 * d                 # ancho de columna (esquemático)
 
-    # Tirante (horizontal, en la parte superior)
-    ty = r.d * 1.05
-    ax.annotate('', xy=(0.20, ty), xytext=(0.20 + r.a, ty),
-                arrowprops=dict(arrowstyle='<->', color='#C00000', lw=2.0))
-    ax.text(0.20 + r.a / 2, ty + r.d * 0.08,
-            f'T = {r.F_tirante_principal:.1f} kN', ha='center', fontsize=8, color='#C00000')
+    # Columna
+    ax.add_patch(plt.Rectangle((-bc, -0.9 * d), bc, h + 1.7 * d,
+                               facecolor='#C8C8C8', edgecolor='#404040', lw=1.5))
+    # Ménsula (borde inferior inclinado)
+    ax.add_patch(plt.Polygon([(0, 0), (L, 0.5 * h), (L, h), (0, h)], closed=True,
+                             facecolor='#DCDCDC', edgecolor='#404040', lw=1.5))
+    # Placa de apoyo
+    ax.add_patch(plt.Rectangle((a - 0.08 * d, h), 0.16 * d, 0.04 * d,
+                               facecolor='#404040', edgecolor='#404040'))
 
-    # Biela (diagonal)
-    bx0, by0 = 0.20 + r.a, r.d * 1.05
-    bx1, by1 = 0.20, r.d * 0.15
-    ax.annotate('', xy=(bx1, by1), xytext=(bx0, by0),
-                arrowprops=dict(arrowstyle='->', color='#1F4E79', lw=2.0))
-    mid_x = (bx0 + bx1) / 2 + r.d * 0.05
-    mid_y = (by0 + by1) / 2
-    ax.text(mid_x, mid_y,
-            f'C = {r.F_biela:.1f} kN\nθ={r.theta_deg:.1f}°',
-            ha='left', fontsize=7.5, color='#1F4E79')
+    # Tirante: horizontal a la altura d, anclado dentro de la columna
+    ax.plot([-0.8 * bc, L - 0.06 * d], [d, d], color='#C00000', lw=2.6, solid_capstyle='butt')
+    ax.text(-0.5 * bc, d + 0.07 * d, f'T = {r.F_tirante_principal:.1f} kN',
+            ha='center', va='bottom', fontsize=7.5, color='#C00000',
+            bbox=dict(facecolor='white', edgecolor='none', alpha=0.85, pad=1.2))
+
+    # Biela: del nudo de carga al nudo inferior en la cara de la columna
+    ax.plot([a, 0], [d, 0], color='#1F4E79', lw=3.0, alpha=0.9)
+    ang = np.arctan2(d, a)
+    ox, oy = 0.13 * d * np.sin(ang), -0.13 * d * np.cos(ang)
+    ax.text(a / 2 + ox, d / 2 + oy,
+            f'C = {r.F_biela:.1f} kN\nθ = {r.theta_deg:.1f}°',
+            ha='left', va='top', fontsize=7.5, color='#1F4E79',
+            bbox=dict(facecolor='white', edgecolor='none', alpha=0.85, pad=1.2))
+
+    # Nudos
+    for x, y in [(a, d), (0, 0)]:
+        ax.plot(x, y, 'o', ms=6, color='#222', zorder=5)
 
     # Carga Vu
-    ax.annotate('', xy=(0.20 + r.a, r.d * 1.10),
-                xytext=(0.20 + r.a, r.d * 1.40),
-                arrowprops=dict(arrowstyle='->', color='#888', lw=1.5))
-    ax.text(0.20 + r.a + 0.02, r.d * 1.25,
-            f'Vu={r.Vu:.1f} kN', fontsize=8, color='#555')
+    ax.annotate('', xy=(a, h + 0.05 * d), xytext=(a, h + 0.55 * d),
+                arrowprops=dict(arrowstyle='-|>', color='#333', lw=1.6))
+    ax.text(a + 0.05 * d, h + 0.45 * d, f'Vu = {r.Vu:.1f} kN',
+            fontsize=8, color='#333', va='center')
 
-    ax.set_xlim(-0.05, 0.20 + r.a + 0.25)
-    ax.set_ylim(-0.05, r.d * 1.55)
+    # Cotas a y d
+    yc = h + 0.22 * d
+    ax.annotate('', xy=(a, yc), xytext=(0, yc),
+                arrowprops=dict(arrowstyle='<->', color='#555', lw=0.8))
+    ax.text(a / 2, yc + 0.03 * d, f'a = {a*100:.0f} cm',
+            ha='center', va='bottom', fontsize=7.5, color='#555')
+    xc = L + 0.15 * d
+    ax.annotate('', xy=(xc, d), xytext=(xc, 0),
+                arrowprops=dict(arrowstyle='<->', color='#555', lw=0.8))
+    ax.text(xc + 0.04 * d, d / 2, f'd = {d*100:.0f} cm',
+            ha='left', va='center', fontsize=7.5, color='#555', rotation=90)
+
+    ax.set_xlim(-bc - 0.1 * d, xc + 0.25 * d)
+    ax.set_ylim(-0.95 * d, h + 0.85 * d)
     ok_str = '✓' if r.verifica else '✗'
     ax.set_title(f'Modelo biela-tirante  {ok_str}', fontsize=9)
 
@@ -702,6 +690,9 @@ def graficar_mensula(resultado) -> plt.Figure:
         ['F tirante', f'{r.F_tirante_principal:.1f} kN'],
         ['As principal', f'{r.As_principal:.2f} cm²'],
         ['As total', f'{r.As_total:.2f} cm²'],
+        ['As mín (11.9.5)', f'{r.As_min:.2f} cm²'],
+        ['As a disponer', f'{r.As_adoptar:.2f} cm²'],
+        ['Ah estribos (11.9.4)', f'{r.Ah:.2f} cm²'],
         ['σ biela', f'{r.sigma_biela:.2f} MPa'],
         ['φ·fce', f'{r.phi_fce:.2f} MPa'],
         ['Biela OK', '✓' if r.verifica_biela else '✗'],
@@ -710,7 +701,7 @@ def graficar_mensula(resultado) -> plt.Figure:
                     loc='center', cellLoc='center')
     tbl.auto_set_font_size(False)
     tbl.set_fontsize(8.5)
-    tbl.scale(1, 1.45)
+    tbl.scale(1, 1.35)
     ax2.set_title('Resultados', fontsize=9)
 
     fig.suptitle(

@@ -21,16 +21,19 @@ import matplotlib
 matplotlib.use('QtAgg')
 
 import matplotlib as mpl
+# Las figuras se crean siempre con esta base clara; el tema oscuro se aplica
+# después sobre la figura ya dibujada (app.widgets.tema_figuras).
 mpl.rcParams.update({
-    'figure.facecolor':  '#C0C0C0',
-    'axes.facecolor':    '#EBEBEB',
-    'axes.edgecolor':    '#404040',
-    'axes.labelcolor':   '#000000',
-    'text.color':        '#000000',
-    'xtick.color':       '#000000',
-    'ytick.color':       '#000000',
-    'grid.color':        '#C8C8C8',
-    'font.family':       'monospace',
+    'figure.facecolor':  '#FFFFFF',
+    'axes.facecolor':    '#FAFBFC',
+    'axes.edgecolor':    '#8A96A3',
+    'axes.labelcolor':   '#1F2933',
+    'text.color':        '#1F2933',
+    'xtick.color':       '#1F2933',
+    'ytick.color':       '#1F2933',
+    'grid.color':        '#D9DEE4',
+    # DejaVu Sans como respaldo para glifos que Segoe UI no tiene (✓, ✗, ▲)
+    'font.family':       ['Segoe UI', 'DejaVu Sans'],
     'font.size':         9,
     'figure.autolayout': True,
 })
@@ -39,9 +42,9 @@ from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QWidget,
     QHBoxLayout, QVBoxLayout,
     QPushButton, QStackedWidget,
-    QStatusBar, QLabel,
+    QStatusBar, QLabel, QMessageBox,
 )
-from PyQt6.QtCore import Qt, QDateTime
+from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QFont
 
 from app.styles import get_stylesheet
@@ -51,22 +54,23 @@ from app.themes import get_tema, set_tema, TEMAS
 class VentanaPrincipal(QMainWindow):
 
     _MODULOS = [
-        ('F-01', 'FLEXIÓN'),
-        ('C-02', 'CORTE'),
-        ('P-03', 'COLUMNA'),
-        ('L-04', 'LOSA'),
-        ('V-05', 'VIGA'),
-        ('T-06', 'TORSIÓN'),
-        ('B-07', 'BASES'),
-        ('M-08', 'MÉNSULA'),
-        ('E-09', 'PLANTA'),
+        ('F-01', 'Flexión'),
+        ('C-02', 'Corte'),
+        ('P-03', 'Columna'),
+        ('L-04', 'Losa'),
+        ('V-05', 'Viga'),
+        ('T-06', 'Torsión'),
+        ('B-07', 'Bases'),
+        ('M-08', 'Ménsula'),
+        ('E-09', 'Planta'),
     ]
 
     def __init__(self):
         super().__init__()
-        self.setWindowTitle('SIST. CÁLCULO ESTRUCTURAL  //  CIRSOC 201-2005')
-        self.setFixedSize(1280, 800)
-        self._modulo_activo = 'F-01 FLEXIÓN'
+        self.setWindowTitle('py-concrete-calc  —  Hormigón armado CIRSOC 201-2005')
+        self.setMinimumSize(1100, 700)
+        self.resize(1280, 800)
+        self._modulo_activo = 'F-01 Flexión'
         self._conversor  = None
         self._mapa_flujo = None
         self._setup_ui()
@@ -83,7 +87,7 @@ class VentanaPrincipal(QMainWindow):
         hl.addWidget(self._crear_sidebar())
 
         self.stack = QStackedWidget()
-        hl.addWidget(self.stack)
+        hl.addWidget(self.stack, 1)
 
         self._cargar_ventanas()
         self._setup_statusbar()
@@ -91,24 +95,35 @@ class VentanaPrincipal(QMainWindow):
         # Activar primer módulo
         self._botones[0].setChecked(True)
 
-    def _crear_sidebar(self) -> QWidget:
-        sb = QWidget()
-        sb.setObjectName('sidebar')
-        sb.setFixedWidth(100)
+    def _boton_sidebar(self, texto: str, tip: str, accion) -> QPushButton:
+        btn = QPushButton(texto)
+        btn.setObjectName('btn_modulo')
+        btn.setToolTip(tip)
+        btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        btn.clicked.connect(accion)
+        return btn
 
-        lay = QVBoxLayout(sb)
-        lay.setContentsMargins(8, 10, 8, 8)
-        lay.setSpacing(4)
-
-        logo = QLabel('CIRSOC\n201-2005')
-        logo.setObjectName('sidebar_logo')
-        logo.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        lay.addWidget(logo)
-
+    def _separador(self) -> QWidget:
         sep = QWidget()
         sep.setObjectName('sidebar_sep')
         sep.setFixedHeight(1)
-        lay.addWidget(sep)
+        return sep
+
+    def _crear_sidebar(self) -> QWidget:
+        sb = QWidget()
+        sb.setObjectName('sidebar')
+        sb.setFixedWidth(150)
+
+        lay = QVBoxLayout(sb)
+        lay.setContentsMargins(0, 8, 0, 8)
+        lay.setSpacing(1)
+
+        logo = QLabel('py-concrete-calc\nCIRSOC 201-2005')
+        logo.setObjectName('sidebar_logo')
+        logo.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        lay.addWidget(logo)
+        lay.addSpacing(6)
+        lay.addWidget(self._separador())
         lay.addSpacing(6)
 
         _TIPS = [
@@ -125,97 +140,57 @@ class VentanaPrincipal(QMainWindow):
 
         self._botones: list[QPushButton] = []
         for i, (codigo, nombre) in enumerate(self._MODULOS):
-            btn = QPushButton(f'{codigo}\n{nombre}')
-            btn.setObjectName('btn_modulo')
+            btn = self._boton_sidebar(f'{codigo}    {nombre}', _TIPS[i],
+                                      lambda _chk, idx=i: self._cambiar_modulo(idx))
             btn.setCheckable(True)
-            btn.setFixedSize(84, 68)
-            btn.setToolTip(_TIPS[i])
-            btn.clicked.connect(lambda _checked, idx=i: self._cambiar_modulo(idx))
             lay.addWidget(btn)
             self._botones.append(btn)
 
         lay.addStretch()
-
-        # ── Conversor de unidades ────────────────────────────────────────────
-        sep_conv = QWidget()
-        sep_conv.setObjectName('sidebar_sep')
-        sep_conv.setFixedHeight(1)
-        lay.addWidget(sep_conv)
+        lay.addWidget(self._separador())
         lay.addSpacing(4)
 
-        btn_flujo = QPushButton('↗\nFLUJO')
-        btn_flujo.setObjectName('btn_modulo')
-        btn_flujo.setFixedSize(84, 30)
-        btn_flujo.setToolTip(
-            'Mapa de flujo de diseño\n'
-            'Muestra cuándo usar cada módulo\n'
-            'y cómo se vinculan entre sí'
-        )
-        btn_flujo.clicked.connect(self._abrir_mapa_flujo)
-        lay.addWidget(btn_flujo)
-        lay.addSpacing(2)
+        lay.addWidget(self._boton_sidebar(
+            'Mapa de flujo', 'Cuándo usar cada módulo y cómo se vinculan',
+            self._abrir_mapa_flujo))
+        lay.addWidget(self._boton_sidebar(
+            'Conversor de unidades',
+            'kgf ↔ kN, tf ↔ kN, kgf·m ↔ kN·m,\nkgf/cm² ↔ MPa, kgf/m² ↔ kN/m², ...',
+            self._abrir_conversor))
+        lay.addWidget(self._boton_sidebar(
+            'Memoria de cálculo PDF',
+            'Exportar datos, resultados, referencias y figura\ndel módulo actual a un PDF',
+            self._exportar_memoria))
+        lay.addWidget(self._boton_sidebar(
+            'Guardar sesión', 'Guardar los datos de todos los módulos en un archivo JSON',
+            self._guardar_sesion))
+        lay.addWidget(self._boton_sidebar(
+            'Abrir sesión', 'Restaurar los datos de una sesión guardada (JSON)',
+            self._abrir_sesion))
 
-        btn_conv = QPushButton('⇄\nUNIDADES')
-        btn_conv.setObjectName('btn_modulo')
-        btn_conv.setFixedSize(84, 30)
-        btn_conv.setToolTip(
-            'Conversor de unidades\n'
-            'kgf ↔ kN, tf ↔ kN, kgf·m ↔ kN·m,\n'
-            'kgf/cm² ↔ MPa, kgf/m² ↔ kN/m², ...'
-        )
-        btn_conv.clicked.connect(self._abrir_conversor)
-        lay.addWidget(btn_conv)
-        lay.addSpacing(2)
-
-        btn_guardar = QPushButton('↓ GUARDAR')
-        btn_guardar.setObjectName('btn_modulo')
-        btn_guardar.setFixedSize(84, 24)
-        btn_guardar.setToolTip('Guardar todos los inputs de la sesión en un archivo JSON')
-        btn_guardar.clicked.connect(self._guardar_sesion)
-        lay.addWidget(btn_guardar)
-
-        btn_abrir = QPushButton('↑ ABRIR')
-        btn_abrir.setObjectName('btn_modulo')
-        btn_abrir.setFixedSize(84, 24)
-        btn_abrir.setToolTip('Restaurar los inputs de una sesión guardada (JSON)')
-        btn_abrir.clicked.connect(self._abrir_sesion)
-        lay.addWidget(btn_abrir)
-        lay.addSpacing(2)
-
-        # ── Selector de tema ─────────────────────────────────────────────────
-        sep2 = QWidget()
-        sep2.setObjectName('sidebar_sep')
-        sep2.setFixedHeight(1)
-        lay.addWidget(sep2)
-        lay.addSpacing(4)
-
-        lbl = QLabel('TEMA')
-        lbl.setObjectName('sidebar_logo')
-        lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        lay.addWidget(lbl)
-        lay.addSpacing(2)
+        lay.addSpacing(6)
+        lay.addWidget(self._separador())
+        lay.addSpacing(8)
 
         tema_row = QWidget()
         tema_row.setObjectName('sidebar')
         tema_hl = QHBoxLayout(tema_row)
-        tema_hl.setContentsMargins(0, 0, 0, 0)
-        tema_hl.setSpacing(2)
+        tema_hl.setContentsMargins(10, 0, 10, 0)
+        tema_hl.setSpacing(4)
 
         tema_activo = get_tema().codigo
-        self._btns_tema: list[QPushButton] = []
-        for codigo in TEMAS:
-            btn = QPushButton(codigo)
+        self._btns_tema: dict[str, QPushButton] = {}
+        for codigo, tema in TEMAS.items():
+            btn = QPushButton(tema.nombre)
             btn.setObjectName('btn_tema')
             btn.setCheckable(True)
             btn.setChecked(codigo == tema_activo)
-            btn.setFixedSize(26, 22)
+            btn.setCursor(Qt.CursorShape.PointingHandCursor)
             btn.clicked.connect(lambda _chk, c=codigo: self._cambiar_tema(c))
             tema_hl.addWidget(btn)
-            self._btns_tema.append(btn)
+            self._btns_tema[codigo] = btn
 
         lay.addWidget(tema_row)
-        lay.addSpacing(4)
-
         return sb
 
     def _cargar_ventanas(self) -> None:
@@ -236,12 +211,11 @@ class VentanaPrincipal(QMainWindow):
 
     def _setup_statusbar(self) -> None:
         sb = QStatusBar()
-        sb.setObjectName('status_bar')
         self.setStatusBar(sb)
         self._lbl_status = QLabel()
         self._lbl_status.setObjectName('status_label')
         sb.addWidget(self._lbl_status)
-        self._actualizar_status('LISTO')
+        self._actualizar_status('Listo')
 
     # ── Navegación ───────────────────────────────────────────────────────────
 
@@ -251,7 +225,7 @@ class VentanaPrincipal(QMainWindow):
         self.stack.setCurrentIndex(idx)
         codigo, nombre = self._MODULOS[idx]
         self._modulo_activo = f'{codigo} {nombre}'
-        self._actualizar_status('LISTO')
+        self._actualizar_status('Listo')
 
     def _guardar_sesion(self) -> None:
         import json
@@ -262,13 +236,13 @@ class VentanaPrincipal(QMainWindow):
         if not path:
             return
         estados = {}
-        for i in range(8):
+        for i in range(self.stack.count()):
             w = self.stack.widget(i)
             if w is not None and hasattr(w, 'get_estado'):
                 estados[str(i)] = w.get_estado()
         with open(path, 'w', encoding='utf-8') as f:
             json.dump(estados, f, indent=2, ensure_ascii=False)
-        self._actualizar_status('SESIÓN GUARDADA')
+        self._actualizar_status('Sesión guardada')
 
     def _abrir_sesion(self) -> None:
         import json
@@ -278,16 +252,45 @@ class VentanaPrincipal(QMainWindow):
         )
         if not path:
             return
-        with open(path, encoding='utf-8') as f:
-            estados = json.load(f)
+        try:
+            with open(path, encoding='utf-8') as f:
+                estados = json.load(f)
+        except (OSError, ValueError) as e:
+            QMessageBox.warning(self, 'Abrir sesión', f'No se pudo leer el archivo:\n{e}')
+            return
+        fallidos = []
         for idx_str, estado in estados.items():
             w = self.stack.widget(int(idx_str))
             if w is not None and hasattr(w, 'set_estado'):
                 try:
                     w.set_estado(estado)
                 except Exception:
-                    pass
-        self._actualizar_status('SESIÓN CARGADA')
+                    fallidos.append(self._MODULOS[int(idx_str)][0])
+        if fallidos:
+            QMessageBox.warning(
+                self, 'Abrir sesión',
+                'Algunos módulos no se pudieron restaurar: ' + ', '.join(fallidos))
+        self._actualizar_status('Sesión cargada')
+
+    def _exportar_memoria(self) -> None:
+        from PyQt6.QtWidgets import QFileDialog
+        from app.memoria import generar_memoria, sin_resultados
+
+        idx = self.stack.currentIndex()
+        codigo, nombre = self._MODULOS[idx]
+        ventana = self.stack.currentWidget()
+        if sin_resultados(ventana):
+            QMessageBox.information(
+                self, 'Memoria de cálculo',
+                f'Primero calcule el módulo {codigo} para generar su memoria.')
+            return
+        path, _ = QFileDialog.getSaveFileName(
+            self, 'Exportar memoria de cálculo',
+            f'memoria_{codigo}_{nombre.lower()}.pdf', 'PDF (*.pdf)')
+        if not path:
+            return
+        generar_memoria(ventana, codigo, path)
+        self._actualizar_status(f'Memoria exportada: {os.path.basename(path)}')
 
     def _abrir_mapa_flujo(self) -> None:
         if self._mapa_flujo is None:
@@ -312,21 +315,34 @@ class VentanaPrincipal(QMainWindow):
     def _cambiar_tema(self, codigo: str) -> None:
         tema = set_tema(codigo)
         QApplication.instance().setStyleSheet(get_stylesheet(tema))
-        for btn in self._btns_tema:
-            btn.setChecked(btn.text() == codigo)
-        self._actualizar_status(f'TEMA: {tema.nombre.upper()}')
+        for c, btn in self._btns_tema.items():
+            btn.setChecked(c == codigo)
+
+        # Componentes que dibujan con colores propios (no QSS)
+        from app.widgets.panel_resultados import PanelResultados
+        from app.widgets.canvas_mpl import CanvasMatplotlib
+        from app.widgets.visor_3d import VisorPlotly3D
+        from app.widgets.canvas_planta import PlantaView
+        for w in self.findChildren(PanelResultados):
+            w.refrescar()
+        for clase in (CanvasMatplotlib, VisorPlotly3D, PlantaView):
+            for w in self.findChildren(clase):
+                w.aplicar_tema()
+        if self._mapa_flujo is not None:
+            self._mapa_flujo.aplicar_tema()
+        self._actualizar_status(f'Tema {tema.nombre.lower()}')
 
     def _actualizar_status(self, estado: str) -> None:
-        hora = QDateTime.currentDateTime().toString('hh:mm:ss')
         self._lbl_status.setText(
-            f'[{self._modulo_activo}]  //  CIRSOC 201-2005  //  {hora}  //  {estado}'
+            f'{self._modulo_activo}   ·   CIRSOC 201-2005   ·   {estado}'
         )
 
 
 def main() -> None:
     app = QApplication(sys.argv)
+    app.setStyle('Fusion')
     app.setStyleSheet(get_stylesheet(get_tema()))
-    app.setFont(QFont('Tahoma', 9))
+    app.setFont(QFont('Segoe UI', 9))
 
     ventana = VentanaPrincipal()
     ventana.show()
