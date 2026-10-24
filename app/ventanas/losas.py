@@ -143,7 +143,7 @@ class VentanaLosas(QWidget):
         self.entrada_wL.setToolTip(
             '<b>wL</b> — carga viva superficial de servicio [kN/m²] — sin mayorar<br>'
             'CIRSOC tabla C4.2: vivienda=2.0, oficinas=2.4, depósito=4.8 kN/m²<br>'
-            '<i>El programa aplica 1.4·wD + 1.7·wL internamente</i>'
+            '<i>El programa aplica wu = máx(1.4·wD ; 1.2·wD + 1.6·wL) (art. 9.2.1)</i>'
         )
         self.spin_tramos = QSpinBox()
         self.spin_tramos.setRange(1, 10)
@@ -214,7 +214,7 @@ class VentanaLosas(QWidget):
         self.e2_wL = QLineEdit('3.0')
         self.e2_wL.setToolTip(
             '<b>wL</b> — carga viva superficial de servicio [kN/m²] — sin mayorar<br>'
-            '<i>El programa aplica wu = 1.4·wD + 1.7·wL internamente</i>'
+            '<i>El programa aplica wu = máx(1.4·wD ; 1.2·wD + 1.6·wL) (art. 9.2.1)</i>'
         )
         form_car.addRow('wD [kN/m²]:', self.e2_wD)
         form_car.addRow('wL [kN/m²]:', self.e2_wL)
@@ -333,6 +333,7 @@ class VentanaLosas(QWidget):
             self.panel_res.mostrar_error(str(e))
 
     def _ejecutar_2dir(self) -> None:
+        from hormigon.cargas import wu_DL
         from hormigon.losas import calcular_losa_2dir
         try:
             horm   = self.sel_mat.get_hormigon()
@@ -346,7 +347,7 @@ class VentanaLosas(QWidget):
             tipo_a = self.combo_tipo_a.currentText()
             tipo_b = self.combo_tipo_b.currentText()
 
-            wu = 1.4 * wD + 1.7 * wL
+            wu = wu_DL(wD, wL)   # máx(1.4·D ; 1.2·D + 1.6·L), art. 9.2.1
 
             r = calcular_losa_2dir(
                 la=la, lb=lb, h=h, recubrimiento=rec,

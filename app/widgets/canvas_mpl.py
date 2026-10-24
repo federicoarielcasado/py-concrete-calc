@@ -28,6 +28,7 @@ class CanvasMatplotlib(QWidget):
 
         # Botón de exportación
         self._btn_export = QPushButton('Exportar figura')
+        self._btn_export.setToolTip('Guardar la figura como PDF, PNG o SVG (siempre en colores claros)')
         self._btn_export.setEnabled(False)
         self._btn_export.clicked.connect(self._exportar)
         outer.addWidget(self._btn_export)

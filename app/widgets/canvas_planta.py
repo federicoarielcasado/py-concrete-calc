@@ -25,6 +25,8 @@ from PyQt6.QtGui import QPainter, QPen, QBrush, QColor, QFont
 
 SCALE  = 80      # px / metro
 SNAP_M = 1.0     # paso de grilla en metros
+GAMMA_HORMIGON = 25.0   # kN/m³ — igual que PlantaEstructural.gamma_conc
+_PIE_TIP = '<br><span style="color:gray;"><i>{}</i></span>'
 
 _C_EDGE_VIGA  = QColor(150,  90,  35, 255)
 _C_VIGA       = QColor(160, 100,  40, 220)
@@ -92,6 +94,37 @@ class PanelProps:
     edge_w:   bool  = True
 
 
+def puntos_columna_m(panels) -> set[tuple[float, float]]:
+    """
+    Posiciones de columnas [m] a partir de los paneles de losa.
+
+    Cada viga continua se divide en tramos en todos los ejes de la grilla que
+    cruza, y la propagación trata cada división como apoyo. Por eso hay una
+    columna en los extremos de cada viga y en cada eje que la cruza (incluye
+    los cruces entre vigas): así toda la carga llega a alguna columna.
+    """
+    xs, ys = set(), set()
+    h_vigas: dict[float, list] = {}
+    v_vigas: dict[float, list] = {}
+    for p in panels:
+        x0, x1, y0, y1 = p.x0_m(), p.x1_m(), p.y0_m(), p.y1_m()
+        xs.update((x0, x1)); ys.update((y0, y1))
+        if p.props.edge_n: h_vigas.setdefault(y0, []).append((x0, x1))
+        if p.props.edge_s: h_vigas.setdefault(y1, []).append((x0, x1))
+        if p.props.edge_w: v_vigas.setdefault(x0, []).append((y0, y1))
+        if p.props.edge_e: v_vigas.setdefault(x1, []).append((y0, y1))
+
+    eps = 1e-6
+    pts: set[tuple[float, float]] = set()
+    for y, segs in h_vigas.items():
+        for a, b in _merge_segs_m(segs):
+            pts.update((x, y) for x in xs if a - eps <= x <= b + eps)
+    for x, segs in v_vigas.items():
+        for a, b in _merge_segs_m(segs):
+            pts.update((x, y) for y in ys if a - eps <= y <= b + eps)
+    return pts
+
+
 # ── Items graficos ────────────────────────────────────────────────────────────
 
 class PanelItem(QGraphicsRectItem):
@@ -110,6 +143,31 @@ class PanelItem(QGraphicsRectItem):
         )
         self.setPen(QPen(Qt.GlobalColor.transparent))
         self.setZValue(1)
+        self.actualizar_tooltip()
+
+    def actualizar_tooltip(self) -> None:
+        from hormigon.cargas import wu_DL
+        pr = self.props
+        lx = self.rect().width() / SCALE
+        ly = self.rect().height() / SCALE
+        if pr.tipo == '2dir':
+            m = min(lx, ly) / max(lx, ly)
+            tipo = f'2 direcciones (m = la/lb = {m:.2f})'
+        else:
+            tipo = f'1 dirección (armado en {pr.dir_1dir})'
+        pp = pr.h * GAMMA_HORMIGON
+        wu = wu_DL(pp + pr.wD, pr.wL)
+        bordes = [n for n, b in (('N', pr.edge_n), ('S', pr.edge_s),
+                                 ('E', pr.edge_e), ('O', pr.edge_w)) if b]
+        self.setToolTip(
+            f'<b>Losa {self.panel_id}</b> — {tipo}<br>'
+            f'{lx:.2f} × {ly:.2f} m  ·  h = {pr.h*100:.0f} cm<br>'
+            f'Peso propio: {pp:.2f} kN/m² (h × {GAMMA_HORMIGON:.0f} kN/m³)<br>'
+            f'wD superpuesta: {pr.wD:.2f} kN/m²  ·  wL: {pr.wL:.2f} kN/m²<br>'
+            f'wu = máx(1.4·D ; 1.2·D + 1.6·L) = <b>{wu:.2f} kN/m²</b><br>'
+            f'Bordes con viga: {", ".join(bordes) if bordes else "ninguno"}'
+            + _PIE_TIP.format('Doble clic: editar · Arrastrar: mover · Supr: borrar')
+        )
 
     # ── Geometria en metros ───────────────────────────────────────────────────
 
@@ -128,6 +186,7 @@ class PanelItem(QGraphicsRectItem):
         if change == self.GraphicsItemChange.ItemPositionChange:
             return QPointF(_snap(value.x()), _snap(value.y()))
         if change == self.GraphicsItemChange.ItemPositionHasChanged:
+            self.actualizar_tooltip()
             sc = self.scene()
             if sc:
                 sc.reconstruir()
@@ -137,6 +196,7 @@ class PanelItem(QGraphicsRectItem):
         dlg = DialogPanel(self.props)
         if dlg.exec() == QDialog.DialogCode.Accepted:
             self.props = dlg.get_props()
+            self.actualizar_tooltip()
             self.update()
             if self.scene():
                 self.scene().reconstruir()
@@ -175,6 +235,37 @@ class VigaItem(QGraphicsLineItem):
         super().__init__(x0, y0, x1, y1)
         self.setPen(QPen(_C_VIGA, 4))
         self.setZValue(2)
+        self.elem_id: str | None = None
+        largo = (abs(x1 - x0) + abs(y1 - y0)) / SCALE
+        self.setToolTip(
+            f'<b>Viga</b> generada sobre el borde de losa · L = {largo:.2f} m'
+            + _PIE_TIP.format('Presione Propagar cargas para ver su carga'))
+
+    def clave(self) -> tuple:
+        """('x'|'y', coordenada del eje, desde, hasta) en metros."""
+        ln = self.line()
+        x0, y0, x1, y1 = (_to_m(v) for v in (ln.x1(), ln.y1(), ln.x2(), ln.y2()))
+        if abs(y0 - y1) < 1e-6:
+            return ('x', round(y0, 3), round(min(x0, x1), 3), round(max(x0, x1), 3))
+        return ('y', round(x0, 3), round(min(y0, y1), 3), round(max(y0, y1), 3))
+
+    def asignar(self, viga, carga) -> None:
+        self.elem_id = viga.id
+        sec = viga.seccion
+        luces = ' + '.join(f'{l:.2f}' for l in carga.spans)
+        plural = 's' if carga.n_tramos != 1 else ''
+        self.setToolTip(
+            f'<b>Viga {viga.id}</b> — {carga.n_tramos} tramo{plural} ({luces} m)<br>'
+            f'Sección {sec.b*100:.0f} × {sec.h*100:.0f} cm (incluye peso propio)<br>'
+            f'wD = {carga.wD:.2f} kN/m  ·  wL = {carga.wL:.2f} kN/m<br>'
+            f'wu = <b>{carga.wu:.2f} kN/m</b>'
+            + _PIE_TIP.format('Doble clic: abrir en V-05 como viga continua'))
+
+    def mouseDoubleClickEvent(self, event):
+        if self.elem_id and self.scene():
+            self.scene().elemento_activado.emit('VIGA', self.elem_id)
+        else:
+            super().mouseDoubleClickEvent(event)
 
 
 class ColumnaItem(QGraphicsRectItem):
@@ -185,6 +276,34 @@ class ColumnaItem(QGraphicsRectItem):
         self.setBrush(QBrush(_c_columna()))
         self.setPen(QPen(QColor(20, 30, 40), 1.5))
         self.setZValue(3)
+        self.elem_id: str | None = None
+        self.setToolTip(
+            f'<b>Columna</b> en ({_to_m(x):.2f} ; {_to_m(y):.2f}) m'
+            + _PIE_TIP.format('Presione Propagar cargas para ver su carga'))
+
+    def clave(self) -> tuple:
+        return (round(_to_m(self.pos().x()), 3), round(_to_m(self.pos().y()), 3))
+
+    def asignar(self, col, carga) -> None:
+        self.elem_id = col.id
+        sec = col.seccion
+        aportes = ''.join(
+            f'<br>&nbsp;&nbsp;{k[2:]}: {v:.1f} kN'
+            for k, v in carga.detalle.items() if k.startswith('R_'))
+        e_min = max(0.02, sec.h / 20)
+        self.setToolTip(
+            f'<b>Columna {col.id}</b> — {sec.b*100:.0f} × {sec.h*100:.0f} cm,'
+            f' H = {col.h_entrepiso:.2f} m<br>'
+            f'Pu = <b>{carga.Pu:.1f} kN</b>  ·  Mu = {carga.Mu:.2f} kNm'
+            f' (Pu × e_mín = {e_min*1000:.0f} mm)<br>'
+            f'Reacciones mayoradas de vigas:{aportes}'
+            + _PIE_TIP.format('Doble clic: abrir en P-03'))
+
+    def mouseDoubleClickEvent(self, event):
+        if self.elem_id and self.scene():
+            self.scene().elemento_activado.emit('COLUMNA', self.elem_id)
+        else:
+            super().mouseDoubleClickEvent(event)
 
 
 # ── Dialogo de propiedades ────────────────────────────────────────────────────
@@ -277,6 +396,7 @@ class DialogPanel(QDialog):
 
 class PlantaScene(QGraphicsScene):
     modelo_listo = pyqtSignal()
+    elemento_activado = pyqtSignal(str, str)   # ('VIGA' | 'COLUMNA', id)
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -319,6 +439,27 @@ class PlantaScene(QGraphicsScene):
                                d['x1'] * SCALE, d['y1'] * SCALE,
                                PanelProps(**d.get('props', {})))
 
+    def asignar_resultados(self, planta, propagacion) -> None:
+        """Vincula vigas y columnas dibujadas con el modelo y muestra sus cargas."""
+        g = planta.grilla
+        vigas = {}
+        for v in planta.vigas.values():
+            if v.dir == 'x':
+                k = (g.ejes_y[v.idx], g.ejes_x[v.desde], g.ejes_x[v.hasta])
+            else:
+                k = (g.ejes_x[v.idx], g.ejes_y[v.desde], g.ejes_y[v.hasta])
+            vigas[(v.dir,) + tuple(round(c, 3) for c in k)] = v
+        cols = {(round(g.ejes_x[c.ix], 3), round(g.ejes_y[c.iy], 3)): c
+                for c in planta.columnas.values()}
+        for it in self._vigas:
+            v = vigas.get(it.clave())
+            if v is not None and v.id in propagacion.cargas_vigas:
+                it.asignar(v, propagacion.cargas_vigas[v.id])
+        for it in self._cols:
+            c = cols.get(it.clave())
+            if c is not None and c.id in propagacion.cargas_columnas:
+                it.asignar(c, propagacion.cargas_columnas[c.id])
+
     def eliminar_seleccionados(self):
         for item in list(self.selectedItems()):
             if isinstance(item, PanelItem):
@@ -359,23 +500,8 @@ class PlantaScene(QGraphicsScene):
                 it = VigaItem(x, y0, x, y1)
                 self.addItem(it); self._vigas.append(it)
 
-        # Columnas en extremos de vigas e intersecciones
-        col_pts: set[tuple[float, float]] = set()
-        for y, segs in mh.items():
-            for x0, x1 in segs:
-                col_pts.add((_snap(x0), _snap(y)))
-                col_pts.add((_snap(x1), _snap(y)))
-        for x, segs in mv.items():
-            for y0, y1 in segs:
-                col_pts.add((_snap(x), _snap(y0)))
-                col_pts.add((_snap(x), _snap(y1)))
-        for y, h_segs in mh.items():
-            for x, v_segs in mv.items():
-                xs, ys = _snap(x), _snap(y)
-                for x0, x1 in h_segs:
-                    for y0, y1 in v_segs:
-                        if x0 - 1 <= xs <= x1 + 1 and y0 - 1 <= ys <= y1 + 1:
-                            col_pts.add((xs, ys))
+        # Columnas: mismas posiciones que usa el modelo de cálculo
+        col_pts = {(x * SCALE, y * SCALE) for x, y in puntos_columna_m(self._panels)}
 
         for cx, cy in col_pts:
             it = ColumnaItem(cx, cy)
@@ -496,27 +622,7 @@ class PlantaScene(QGraphicsScene):
                         seccion=sec_viga, extremo='columna',
                     ))
 
-        # Recompute column positions from panel corners in meters (not from
-        # ColumnaItem pixel positions, which can be misplaced by _snap rounding).
-        h_beam_m: dict[float, list[tuple[float, float]]] = {}
-        v_beam_m: dict[float, list[tuple[float, float]]] = {}
-        for p in self._panels:
-            x0m, x1m = p.x0_m(), p.x1_m()
-            y0m, y1m = p.y0_m(), p.y1_m()
-            if p.props.edge_n: h_beam_m.setdefault(y0m, []).append((x0m, x1m))
-            if p.props.edge_s: h_beam_m.setdefault(y1m, []).append((x0m, x1m))
-            if p.props.edge_w: v_beam_m.setdefault(x0m, []).append((y0m, y1m))
-            if p.props.edge_e: v_beam_m.setdefault(x1m, []).append((y0m, y1m))
-
-        col_pts_m: set[tuple[float, float]] = set()
-        for y_m, segs in h_beam_m.items():
-            for x0, x1 in _merge_segs_m(segs):
-                col_pts_m.add((x0, y_m))
-                col_pts_m.add((x1, y_m))
-        for x_m, segs in v_beam_m.items():
-            for y0, y1 in _merge_segs_m(segs):
-                col_pts_m.add((x_m, y0))
-                col_pts_m.add((x_m, y1))
+        col_pts_m = puntos_columna_m(self._panels)
 
         col_added: set[tuple[int, int]] = set()
         for x_m, y_m in sorted(col_pts_m):

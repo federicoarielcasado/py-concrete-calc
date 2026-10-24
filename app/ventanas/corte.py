@@ -101,10 +101,22 @@ class VentanaCorte(QWidget):
 
         self.btn_calc = QPushButton('Calcular')
         self.btn_calc.setObjectName('btn_calcular')
+        self.btn_calc.setToolTip(
+            '<b>Diseñar estribos</b> para Vu (art. 11.5)<br>'
+            'Vc del hormigón (art. 11.3), Vs requerido = Vu/φ − Vc,<br>'
+            'Av/s adoptado = máx(calculado, mínimo) y separación máxima<br>'
+            '<i>Verifica también que Vs no supere el límite de la sección</i>'
+        )
         self.btn_calc.clicked.connect(self._ejecutar)
         lay.addWidget(self.btn_calc)
 
         self.btn_var = QPushButton('Ver variantes')
+        self.btn_var.setToolTip(
+            '<b>Combinaciones de diámetro y separación</b> de estribos<br>'
+            'que cubren Av/s sin superar la separación máxima<br>'
+            'Ordenadas por menor Av/s (menos acero por metro de viga)<br>'
+            '<i>Disponible después de Calcular</i>'
+        )
         self.btn_var.setEnabled(False)
         self.btn_var.clicked.connect(self._ver_variantes)
         lay.addWidget(self.btn_var)
@@ -138,6 +150,14 @@ class VentanaCorte(QWidget):
 
         self.tabla = QTableWidget(0, 4)
         self.tabla.setHorizontalHeaderLabels(['RK', 'ESTRIBO', 'Av/s [mm²/m]', 's [cm]'])
+        for col, tip in enumerate((
+            'Ranking por economía: 1 = menor Av/s (menos acero por metro)',
+            'Ramas y diámetro del estribo, p. ej. 2φ8 = estribo cerrado de 8 mm',
+            'Área de estribos por metro de viga provista [mm²/m] — debe ser ≥ Av/s requerido',
+            'Separación entre estribos [cm] — no mayor que s máximo',
+        )):
+            self.tabla.horizontalHeaderItem(col).setToolTip(tip)
+        self.tabla.setToolTip('Doble clic sobre una fila para adoptarla')
         self.tabla.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
         self.tabla.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         self.tabla.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
@@ -147,6 +167,9 @@ class VentanaCorte(QWidget):
         lay.addWidget(self.tabla)
 
         self.btn_adoptar = QPushButton('Adoptar variante seleccionada')
+        self.btn_adoptar.setToolTip(
+            'Adopta el estribado seleccionado y lo muestra en la sección'
+        )
         self.btn_adoptar.setEnabled(False)
         self.btn_adoptar.clicked.connect(self._adoptar_seleccion)
         lay.addWidget(self.btn_adoptar)

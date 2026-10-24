@@ -98,6 +98,7 @@ class VentanaPlantaCanvas(QWidget):
         self._scene = PlantaScene()
         self._view  = PlantaView(self._scene)
         self._scene.modelo_listo.connect(self._on_modelo_listo)
+        self._scene.elemento_activado.connect(self._abrir_elemento)
 
         hl.addWidget(con_scroll(self._panel_izq()), 0)
 
@@ -253,9 +254,9 @@ class VentanaPlantaCanvas(QWidget):
         hl.setContentsMargins(8, 3, 8, 3)
 
         hint = QLabel(
-            'Drag: nueva losa  |  Drag sobre losa: mover  |  '
-            'Dbl-click: propiedades  |  Supr: eliminar  |  '
-            'Drag derecho: paneo  |  Scroll: zoom'
+            'Arrastrar: nueva losa  ·  Arrastrar losa: mover  ·  Doble clic: editar / abrir  ·  '
+            'Supr: borrar  ·  Botón derecho: desplazar  ·  Rueda: zoom  ·  '
+            'Pasar el mouse: ver datos'
         )
         hint.setObjectName('status_label')
         hl.addWidget(hint, 1)
@@ -350,6 +351,9 @@ class VentanaPlantaCanvas(QWidget):
     # ── Señales y logica ──────────────────────────────────────────────────────
 
     def _on_modelo_listo(self):
+        # Cualquier cambio en la planta deja obsoletas las cargas propagadas
+        if self._propagacion is not None:
+            self._invalidar_resultados()
         np = len(self._scene._panels)
         nv = len(self._scene._vigas)
         nc = len(self._scene._cols)
@@ -396,6 +400,7 @@ class VentanaPlantaCanvas(QWidget):
             self._propagacion = propagar(planta)
 
             self.panel_res.mostrar_resultado_propagacion(self._propagacion)
+            self._scene.asignar_resultados(planta, self._propagacion)
             self._actualizar_ids()
 
             from graficos.modelo_3d import visualizar_planta_3d
@@ -424,6 +429,13 @@ class VentanaPlantaCanvas(QWidget):
         else:
             ids = sorted(self._propagacion.cargas_columnas.keys())
         self.combo_env_id.addItems(ids)
+
+    def _abrir_elemento(self, tipo: str, elem_id: str) -> None:
+        """Doble clic sobre una viga o columna del lienzo."""
+        self.combo_env_tipo.setCurrentText(tipo)
+        self._actualizar_ids()
+        self.combo_env_id.setCurrentText(elem_id)
+        self._enviar_a_modulo()
 
     def _enviar_a_modulo(self):
         """Pre-llena el módulo de cálculo correspondiente y cambia de pestaña."""

@@ -87,7 +87,7 @@ class VentanaBases(QWidget):
         self.entrada_Pu    = QLineEdit('1200')
         self.entrada_Pu.setToolTip(
             '<b>Pu</b> — carga axial última mayorada [kN]<br>'
-            'Combinación art. 9.2.1: Pu = 1.4·PD + 1.7·PL<br>'
+            'Combinación art. 9.2.1: Pu = máx(1.4·PD ; 1.2·PD + 1.6·PL)<br>'
             'Para diseño de la armadura de la base'
         )
         self.entrada_Ps    = QLineEdit('850')

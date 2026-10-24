@@ -15,6 +15,7 @@ Cubre el programa de Estructuras de Hormigón de UTN FRA: materiales, secciones 
 - **Visualización 3D interactiva** del modelo (Plotly embebido, sin conexión a internet).
 - **Memoria de cálculo en PDF** de cada módulo: datos de entrada, resultados, referencias al CIRSOC y figura.
 - **Validación de datos** antes de calcular, con el campo inválido resaltado y un mensaje claro.
+- **Ayuda en contexto**: tooltips en campos y botones, y datos de cada losa, viga y columna al pasar el mouse sobre la planta.
 - **Temas claro y oscuro**, aplicados también a los gráficos y al modelo 3D.
 - **Sistema de variantes**: las funciones de dimensionado devuelven todas las combinaciones de armadura comercial válidas, ordenadas por menor peso de acero.
 - **Trazabilidad total**: cada resultado guarda todos los valores intermedios (As, φMn, Vc, At/s, etc.).
@@ -29,6 +30,7 @@ Cubre el programa de Estructuras de Hormigón de UTN FRA: materiales, secciones 
 | ![Losa 2 direcciones](docs/capturas/05_losa_2dir.png) **L-04 Losa**: 2 direcciones por Método Directo (art. 13.6) | ![Viga continua](docs/capturas/12_planta_a_viga_continua.png) **V-05 Viga continua**: cargas recibidas desde la planta (E-09) |
 | ![Modelo 3D](docs/capturas/11_planta_3d.png) **E-09 Modelo 3D**: vigas, columnas y cargas propagadas | ![Ménsula](docs/capturas/09_mensula.png) **M-08 Ménsula corta**: modelo biela-tirante |
 | ![Memoria PDF](docs/capturas/17_memoria_pdf.png) **Memoria de cálculo** exportada a PDF | ![Tema oscuro](docs/capturas/20_oscuro_losa_2dir.png) **Tema oscuro** |
+| ![Tooltip columna](docs/capturas/18_tooltip_columna.png) **Info al pasar el mouse**: cargas de cada columna y viga tras propagar | ![Tooltip losa](docs/capturas/19_tooltip_losa.png) **Tooltips** con datos, fórmulas y ayuda de uso |
 
 ## Módulos de la aplicación
 

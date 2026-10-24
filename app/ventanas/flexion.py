@@ -82,7 +82,7 @@ class VentanaFlexion(QWidget):
         self.entrada_Mu.setToolTip(
             '<b>Mu</b> — momento último mayorado [kN·m]<br>'
             'Del análisis con cargas mayoradas (art. 9.2.1)<br>'
-            'Combinación usual: Mu = 1.4·MD + 1.7·ML<br>'
+            'Combinación usual: Mu = máx(1.4·MD ; 1.2·MD + 1.6·ML)<br>'
             '<i>Viga simple, carga uniforme: Mu = wu·L²/8</i>'
         )
         form.addRow('Mu [kNm]:', self.entrada_Mu)
@@ -91,10 +91,22 @@ class VentanaFlexion(QWidget):
         # Botones
         self.btn_calc = QPushButton('Calcular')
         self.btn_calc.setObjectName('btn_calcular')
+        self.btn_calc.setToolTip(
+            '<b>Dimensionar</b> la armadura de tracción para Mu<br>'
+            'Calcula a, c, εs, φ según el modo de rotura (art. 9.3.2 / 10.3)<br>'
+            'y As = máx(As requerida, As mínima art. 10.5)<br>'
+            "<i>Si la sección no alcanza con armadura simple, agrega As' comprimida</i>"
+        )
         self.btn_calc.clicked.connect(self._ejecutar)
         lay.addWidget(self.btn_calc)
 
         self.btn_var = QPushButton('Ver variantes')
+        self.btn_var.setToolTip(
+            '<b>Combinaciones de barras comerciales</b> (φ6 a φ40) que cubren As<br>'
+            'y respetan la separación libre mínima entre barras<br>'
+            'Ordenadas por menor área de acero (más económica primero)<br>'
+            '<i>Disponible después de Calcular</i>'
+        )
         self.btn_var.setEnabled(False)
         self.btn_var.clicked.connect(self._ver_variantes)
         lay.addWidget(self.btn_var)
@@ -132,6 +144,15 @@ class VentanaFlexion(QWidget):
 
         self.tabla = QTableWidget(0, 5)
         self.tabla.setHorizontalHeaderLabels(['RK', 'CONFIG', 'As [cm²]', 'φMn [kNm]', 'sep [mm]'])
+        for col, tip in enumerate((
+            'Ranking por economía: 1 = menor área de acero',
+            'Cantidad y diámetro de barras, p. ej. 6φ14 = 6 barras de 14 mm',
+            'Área de acero provista por la combinación [cm²]',
+            'Momento resistente de diseño con esa armadura [kNm] — debe ser ≥ Mu',
+            'Separación libre entre barras [mm] (mínimo reglamentario: art. 7.6)',
+        )):
+            self.tabla.horizontalHeaderItem(col).setToolTip(tip)
+        self.tabla.setToolTip('Doble clic sobre una fila para adoptarla')
         self.tabla.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
         self.tabla.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         self.tabla.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
@@ -141,6 +162,10 @@ class VentanaFlexion(QWidget):
         lay.addWidget(self.tabla)
 
         self.btn_adoptar = QPushButton('Adoptar variante seleccionada')
+        self.btn_adoptar.setToolTip(
+            'Adopta la combinación de barras seleccionada:<br>'
+            'se dibuja en la sección y se recalcula φMn con la armadura real'
+        )
         self.btn_adoptar.setEnabled(False)
         self.btn_adoptar.clicked.connect(self._adoptar_seleccion)
         lay.addWidget(self.btn_adoptar)

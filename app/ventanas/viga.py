@@ -115,7 +115,7 @@ class VentanaViga(QWidget):
         self.s_wL = QLineEdit('15.0')
         self.s_wL.setToolTip(
             '<b>wL</b> — carga viva distribuida de servicio [kN/m] — sin mayorar<br>'
-            '<i>El programa aplica wu = 1.4·wD + 1.7·wL internamente</i>'
+            '<i>El programa aplica wu = máx(1.4·wD ; 1.2·wD + 1.6·wL) (art. 9.2.1)</i>'
         )
         f.addRow('L [m]:', self.s_L)
         f.addRow('wD [kN/m]:', self.s_wD)

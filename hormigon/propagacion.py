@@ -13,17 +13,24 @@ Distribución de carga de losa a vigas
 
 • Losas 2 direcciones (método de líneas a 45°):
     la = lado corto, lb = lado largo, m = la/lb
-    Vigas que soportan el lado corto (carga triangular):
-        q_eq = w · la / 3  [kN/m]
-    Vigas que soportan el lado largo (carga trapezoidal):
-        q_eq = w · la · (3 − m²) / 6  [kN/m]
-    Para losa cuadrada (m=1) ambas fórmulas dan w·la/3. ✓
+    La carga real sobre la viga es triangular (lado corto) o trapezoidal
+    (lado largo). Se reemplaza por una carga uniforme equivalente, distinta
+    según el efecto que se quiere reproducir:
+
+                          momento (diseño de la viga)   corte (reacciones)
+      triangular           q = w · la / 3                 q = w · la / 4
+      trapezoidal          q = w · la · (3 − m²) / 6      q = w · la · (2 − m) / 4
+
+    Las equivalentes de corte suman exactamente la carga de la losa
+    (2·w·la²/4 + 2·w·la·(2·lb − la)/4 = w·la·lb); las de momento la superan
+    y solo se usan para dimensionar la viga a flexión.
 
 Reacciones sobre columnas
 --------------------------
-Art. 8.3.3 (aproximación):
-    Apoyo exterior:  R = wu · ln / 2
-    Apoyo interior:  R = 1.15 · wu · ln / 2  (por cada vano adyacente)
+Art. 8.3.3 (corte en vigas continuas), con la carga equivalente de corte:
+    Apoyo exterior:                     R = w · ln / 2
+    Primer apoyo interior (tramo extremo): 1.15 · w · ln / 2
+    Demás apoyos interiores:            w · ln / 2   (por cada vano adyacente)
 """
 from __future__ import annotations
 
@@ -52,7 +59,9 @@ class CargaViga:
     wD:            float         # carga muerta promedio ponderada [kN/m]
     wL:            float         # carga viva promedio ponderada [kN/m]
     wu:            float         # carga mayorada promedio [kN/m]
-    wu_por_tramo:  list[float]   # wu por cada vano (para reacciones en columnas)
+    wu_por_tramo:  list[float]   # wu por cada vano (equivalente de momento)
+    corte_por_tramo: list[tuple[float, float]] = field(default_factory=list)
+                                 # (wD, wL) por vano, equivalente de corte [kN/m]
     detalle:       dict = field(default_factory=dict)
 
 
@@ -101,6 +110,7 @@ def _cargas_borde_1dir(
     lx: float,
     ly: float,
     gamma_conc: float,
+    efecto: str = 'momento',
 ) -> dict[str, tuple[float, float]]:
     """
     Cargas (wD, wL) [kN/m] sobre cada borde de una losa 1-dirección.
@@ -141,14 +151,14 @@ def _cargas_borde_2dir(
     lx: float,
     ly: float,
     gamma_conc: float,
+    efecto: str = 'momento',
 ) -> dict[str, tuple[float, float]]:
     """
-    Cargas (wD, wL) [kN/m] sobre cada borde de una losa 2-direcciones.
+    Cargas uniformes equivalentes (wD, wL) [kN/m] sobre cada borde de una
+    losa 2-direcciones (líneas a 45°; la = lado corto, lb = lado largo, m = la/lb).
 
-    Distribución por líneas a 45°:
-      la = lado corto,  lb = lado largo,  m = la/lb
-      Borde sobre el lado corto  →  q_triangular  = w · la / 3
-      Borde sobre el lado largo  →  q_trapezoidal = w · la · (3−m²) / 6
+    efecto='momento': triangular w·la/3, trapezoidal w·la·(3−m²)/6
+    efecto='corte':   triangular w·la/4, trapezoidal w·la·(2−m)/4
     """
     wD_total = _wD_losa(losa, gamma_conc)
     wL = losa.wL
@@ -157,27 +167,32 @@ def _cargas_borde_2dir(
     lb = max(lx, ly)
     m = la / lb
 
-    q_tri_D  = wD_total * la / 3
-    q_tri_L  = wL * la / 3
-    q_trap_D = wD_total * la * (3 - m ** 2) / 6
-    q_trap_L = wL * la * (3 - m ** 2) / 6
-
-    if lx <= ly:
-        # Lado corto en x → las vigas en y (dir='y') reciben la carga triangular (mayor)
-        # Las vigas en x (dir='x') reciben la carga trapezoidal (menor)
-        return {
-            'y_neg': (q_tri_D,  q_tri_L),
-            'y_pos': (q_tri_D,  q_tri_L),
-            'x_neg': (q_trap_D, q_trap_L),
-            'x_pos': (q_trap_D, q_trap_L),
-        }
+    if efecto == 'corte':
+        f_tri, f_trap = la / 4, la * (2 - m) / 4
     else:
-        # Lado corto en y → las vigas en x reciben la carga triangular
+        f_tri, f_trap = la / 3, la * (3 - m ** 2) / 6
+
+    q_tri_D,  q_tri_L  = wD_total * f_tri,  wL * f_tri
+    q_trap_D, q_trap_L = wD_total * f_trap, wL * f_trap
+
+    # La carga triangular va a los bordes del lado corto (longitud la) y la
+    # trapezoidal a los del lado largo. Bordes 'x_*': vigas en x, longitud lx;
+    # bordes 'y_*': vigas en y, longitud ly.
+    if lx <= ly:
+        # Lado corto paralelo a x → vigas en x (longitud lx = la): triangular
         return {
             'x_neg': (q_tri_D,  q_tri_L),
             'x_pos': (q_tri_D,  q_tri_L),
             'y_neg': (q_trap_D, q_trap_L),
             'y_pos': (q_trap_D, q_trap_L),
+        }
+    else:
+        # Lado corto paralelo a y → vigas en y (longitud ly = la): triangular
+        return {
+            'y_neg': (q_tri_D,  q_tri_L),
+            'y_pos': (q_tri_D,  q_tri_L),
+            'x_neg': (q_trap_D, q_trap_L),
+            'x_pos': (q_trap_D, q_trap_L),
         }
 
 
@@ -185,6 +200,7 @@ def _carga_tramo(
     viga: VigaEsquema,
     k: int,
     planta: PlantaEstructural,
+    efecto: str = 'momento',
 ) -> tuple[float, float]:
     """
     Retorna (wD, wL) [kN/m] del tramo k de la viga (0-based).
@@ -207,7 +223,7 @@ def _carga_tramo(
             lx = g.lx(losa.i)
             ly = g.ly(losa.j)
             fn = _cargas_borde_1dir if losa.tipo == '1dir' else _cargas_borde_2dir
-            cargas = fn(losa, lx, ly, planta.gamma_conc)
+            cargas = fn(losa, lx, ly, planta.gamma_conc, efecto)
             if losa.j == viga.idx:          # panel abajo del tramo
                 wD += cargas['x_neg'][0]
                 wL += cargas['x_neg'][1]
@@ -223,7 +239,7 @@ def _carga_tramo(
             lx = g.lx(losa.i)
             ly = g.ly(losa.j)
             fn = _cargas_borde_1dir if losa.tipo == '1dir' else _cargas_borde_2dir
-            cargas = fn(losa, lx, ly, planta.gamma_conc)
+            cargas = fn(losa, lx, ly, planta.gamma_conc, efecto)
             if losa.i == viga.idx:          # panel a la izquierda
                 wD += cargas['y_neg'][0]
                 wL += cargas['y_neg'][1]
@@ -242,42 +258,28 @@ def _reaccion_caracteristica(
     """
     Retorna (R_D, R_L) [kN] — reacciones características en el nodo.
 
-    Usa wu_por_tramo para cada vano adyacente al nodo.
-    Aproximación art. 8.3.3:
-      Apoyo exterior : R = w × ln / 2
-      Apoyo interior : R = 1.15 × w_izq × ln_izq / 2  +  1.15 × w_der × ln_der / 2
+    Usa la carga equivalente de corte de cada vano adyacente y el art. 8.3.3:
+      apoyo exterior                    : w · ln / 2
+      tramo extremo en el 1.er apoyo int.: 1.15 · w · ln / 2
+      demás tramos en apoyos interiores : w · ln / 2
     """
     pos = nodo_perp - viga.desde  # posición local (0 = extremo inicial)
     spans = cv.spans
     n = len(spans)
 
-    def _descomponer(k: int) -> tuple[float, float]:
-        """wD y wL del tramo k a partir de wD, wL promedio (proporcional)."""
-        total_w = cv.wD + cv.wL
-        if total_w > 0:
-            wu_k = cv.wu_por_tramo[k]
-            # Proporción D/L conservada del promedio
-            f_D = cv.wD / total_w
-            f_L = cv.wL / total_w
-            # wu_k = 1.2·wD_k + 1.6·wL_k con wD_k/wL_k = f_D/f_L
-            # → wu_k = wD_k·(1.2 + 1.6·f_L/f_D)  (si f_D>0)
-            # Por simplicidad: descomponer proporcionalmente a wu promedio
-            scale = wu_k / cv.wu if cv.wu > 0 else 1.0
-            return cv.wD * scale, cv.wL * scale
-        return cv.wD, cv.wL
+    def aporte(k: int, interior: bool) -> tuple[float, float]:
+        wD, wL = cv.corte_por_tramo[k]
+        extremo = k in (0, n - 1)
+        f = 1.15 if (interior and extremo) else 1.0
+        return f * wD * spans[k] / 2, f * wL * spans[k] / 2
 
     if pos == 0:
-        wD_k, wL_k = _descomponer(0)
-        return wD_k * spans[0] / 2, wL_k * spans[0] / 2
-    elif pos == n:
-        wD_k, wL_k = _descomponer(n - 1)
-        return wD_k * spans[-1] / 2, wL_k * spans[-1] / 2
-    else:
-        wD_i, wL_i = _descomponer(pos - 1)
-        wD_d, wL_d = _descomponer(pos)
-        R_D = 1.15 * wD_i * spans[pos - 1] / 2 + 1.15 * wD_d * spans[pos] / 2
-        R_L = 1.15 * wL_i * spans[pos - 1] / 2 + 1.15 * wL_d * spans[pos] / 2
-        return R_D, R_L
+        return aporte(0, interior=False)
+    if pos == n:
+        return aporte(n - 1, interior=False)
+    D_i, L_i = aporte(pos - 1, interior=True)
+    D_d, L_d = aporte(pos, interior=True)
+    return D_i + D_d, L_i + L_d
 
 
 # ---------------------------------------------------------------------------
@@ -305,6 +307,7 @@ def calcular_carga_viga(
 
     n = len(spans)
     cargas_tramos = [_carga_tramo(viga, k, planta) for k in range(n)]
+    cargas_corte  = [_carga_tramo(viga, k, planta, 'corte') for k in range(n)]
     wu_tramos = [wu_DL(wD, wL) for wD, wL in cargas_tramos]
 
     # Promedio ponderado por longitud de tramo
@@ -329,6 +332,7 @@ def calcular_carga_viga(
         wL=wL_avg,
         wu=wu_avg,
         wu_por_tramo=wu_tramos,
+        corte_por_tramo=cargas_corte,
         detalle=detalle,
     )
 

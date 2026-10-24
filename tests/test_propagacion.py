@@ -144,26 +144,26 @@ def planta_1x1_2dir():
     return p
 
 
-def test_2dir_Vy_carga_triangular(planta_1x1_2dir):
+def test_2dir_Vx_carga_triangular(planta_1x1_2dir):
     """
-    Panel 4.0×5.0: lx=4.0 < ly=5.0 → vigas en y (dir corta) reciben carga
-    triangular: q = w*la/3.
+    Panel 4.0×5.0: lx=4.0 < ly=5.0 → las vigas en x (longitud 4.0 = lado corto)
+    reciben carga triangular: q = w*la/3.
     """
     wD_losa = 0.14 * GAMMA + 2.0
     la, pp = 4.0, 0.25 * 0.50 * GAMMA
     q_tri_wD = wD_losa * la / 3
     q_tri_wL = 3.0 * la / 3
 
-    for vid in ('Vy0', 'Vy1'):
+    for vid in ('Vx0', 'Vx1'):
         cv = calcular_carga_viga(vid, planta_1x1_2dir)
         assert cv.wD == pytest.approx(pp + q_tri_wD, rel=1e-3)
         assert cv.wL == pytest.approx(q_tri_wL, rel=1e-3)
 
 
-def test_2dir_Vx_carga_trapezoidal(planta_1x1_2dir):
+def test_2dir_Vy_carga_trapezoidal(planta_1x1_2dir):
     """
-    Las vigas en x (dir larga) reciben carga trapezoidal: q = w*la*(3-m²)/6.
-    la=4.0, lb=5.0, m=0.8.
+    Las vigas en y (longitud 5.0 = lado largo) reciben carga trapezoidal:
+    q = w*la*(3-m²)/6, con la=4.0, lb=5.0, m=0.8.
     """
     wD_losa = 0.14 * GAMMA + 2.0
     la, lb = 4.0, 5.0
@@ -172,7 +172,7 @@ def test_2dir_Vx_carga_trapezoidal(planta_1x1_2dir):
     q_trap_wD = wD_losa * la * (3 - m**2) / 6
     q_trap_wL = 3.0 * la * (3 - m**2) / 6
 
-    for vid in ('Vx0', 'Vx1'):
+    for vid in ('Vy0', 'Vy1'):
         cv = calcular_carga_viga(vid, planta_1x1_2dir)
         assert cv.wD == pytest.approx(pp + q_trap_wD, rel=1e-3)
         assert cv.wL == pytest.approx(q_trap_wL, rel=1e-3)
@@ -262,3 +262,77 @@ def test_planta_agregar_fluent():
          .agregar_viga(VigaEsquema('V0', dir='x', idx=0, desde=0, hasta=1, seccion=sec)))
     assert 'L0' in p.losas
     assert 'V0' in p.vigas
+
+
+# ---------------------------------------------------------------------------
+# Equilibrio: toda la carga llega a las columnas, sin pérdidas ni duplicados
+# ---------------------------------------------------------------------------
+
+def _planta_grilla(ejes_x, ejes_y, tipo='2dir'):
+    """Planta con losas en todos los paños, vigas en todos los ejes y columnas en todos los nudos."""
+    g = Grilla(ejes_x=ejes_x, ejes_y=ejes_y)
+    p = PlantaEstructural(grilla=g, hormigon=H25, acero=A420, gamma_conc=GAMMA)
+    nx, ny = len(ejes_x) - 1, len(ejes_y) - 1
+    for j in range(ny):
+        for i in range(nx):
+            p.agregar_losa(PanelLosa(f'L{j}{i}', i=i, j=j, h=0.14, tipo=tipo,
+                                      dir_1dir='x', wD=1.5, wL=2.0))
+    for j in range(ny + 1):
+        p.agregar_viga(VigaEsquema(f'Vx{j}', dir='x', idx=j, desde=0, hasta=nx, seccion=SEC_VIGA))
+    for i in range(nx + 1):
+        p.agregar_viga(VigaEsquema(f'Vy{i}', dir='y', idx=i, desde=0, hasta=ny, seccion=SEC_VIGA))
+    for j in range(ny + 1):
+        for i in range(nx + 1):
+            p.agregar_columna(ColumnaEsquema(f'C{j}{i}', ix=i, iy=j,
+                                              seccion=SEC_COL, h_entrepiso=3.0))
+    return p
+
+
+def _carga_total(p):
+    """(D, L) totales de servicio: losas + vigas + columnas [kN]."""
+    g = p.grilla
+    D = L = 0.0
+    for losa in p.losas.values():
+        area = g.lx(losa.i) * g.ly(losa.j)
+        D += (losa.h * GAMMA + losa.wD) * area
+        L += losa.wL * area
+    for v in p.vigas.values():
+        ejes = g.ejes_x if v.dir == 'x' else g.ejes_y
+        D += v.seccion.b * v.seccion.h * GAMMA * (ejes[v.hasta] - ejes[v.desde])
+    for c in p.columnas.values():
+        D += c.seccion.b * c.seccion.h * GAMMA * c.h_entrepiso
+    return D, L
+
+
+@pytest.mark.parametrize('tipo', ['2dir', '1dir'])
+def test_equilibrio_planta_3x2(tipo):
+    """
+    ΣPu ≥ carga total mayorada (no se pierde carga) y la diferencia se explica
+    solo por el factor 1.15 del primer apoyo interior (art. 8.3.3).
+    """
+    p = _planta_grilla([0.0, 5.0, 10.0, 14.0], [0.0, 4.5, 9.0], tipo)
+    total = wu_DL(*_carga_total(p))
+    suma_Pu = sum(c.Pu for c in propagar(p).cargas_columnas.values())
+    assert suma_Pu >= total * 0.999
+    assert suma_Pu <= total * 1.15
+
+
+def test_equivalentes_de_corte_suman_la_carga_de_la_losa():
+    """Las cargas equivalentes de corte de los 4 bordes suman w·lx·ly (líneas a 45°)."""
+    from hormigon.propagacion import _cargas_borde_2dir
+    losa = PanelLosa('L', i=0, j=0, h=0.14, tipo='2dir', wD=1.5, wL=0.0)
+    lx, ly = 4.0, 6.0
+    q = _cargas_borde_2dir(losa, lx, ly, GAMMA, 'corte')
+    total = (q['y_neg'][0] + q['y_pos'][0]) * ly + (q['x_neg'][0] + q['x_pos'][0]) * lx
+    assert total == pytest.approx((0.14 * GAMMA + 1.5) * lx * ly, rel=1e-9)
+
+
+def test_equivalentes_de_momento_no_cambian():
+    """Para el diseño a flexión de la viga se mantienen w·la/3 y w·la·(3−m²)/6."""
+    from hormigon.propagacion import _cargas_borde_2dir
+    losa = PanelLosa('L', i=0, j=0, h=0.14, tipo='2dir', wD=1.5, wL=0.0)
+    w = 0.14 * GAMMA + 1.5
+    q = _cargas_borde_2dir(losa, 4.0, 6.0, GAMMA)
+    m = 4.0 / 6.0
+    assert q['x_neg'][0] == pytest.approx(w * 4.0 / 3)                  # lado corto (lx)
+    assert q['y_neg'][0] == pytest.approx(w * 4.0 * (3 - m ** 2) / 6)   # lado largo (ly)
