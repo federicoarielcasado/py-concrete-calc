@@ -151,6 +151,26 @@ docs/           # Notas de desarrollo y capturas de la aplicación
 
 ## Próximos pasos
 
+### Planta estructural (E-09)
+
+**Limitación actual:** la propagación de cargas es correcta para plantas sobre una grilla regular (también en L), con todas las losas apoyadas en vigas. Para otras configuraciones que el editor permite dibujar (paños desfasados, superpuestos, que abarcan varias celdas de la grilla o con bordes sin viga) las cargas en columnas pueden quedar subestimadas. El detalle está en [docs/DESARROLLO.md](docs/DESARROLLO.md#diagnóstico-de-e-09-casos-límite).
+
+**A. Robustez**
+1. Losas de cualquier tamaño sobre la grilla: dimensiones reales y reparto de carga a los tramos de viga que tocan.
+2. Bordes sin viga: repartir su carga entre los bordes apoyados (una losa en 2 direcciones con dos bordes opuestos libres pasa a trabajar en 1 dirección).
+3. Validaciones en el editor: impedir superposiciones y avisar cuando una losa no tiene apoyo en la dirección en que trabaja.
+4. Control de equilibrio visible en los resultados: carga total vs. ΣPu de columnas.
+
+**B. Nuevos casos**
+5. Voladizos y balcones.
+6. Cargas adicionales: muros o tabiques sobre vigas (lineales) y cargas puntuales.
+7. Varios niveles iguales, con acumulación de cargas en columnas y enlace E-09 → B-07 (base de cada columna).
+8. Secciones por elemento y vigas apoyadas sobre vigas (sin columna en el cruce).
+
+**C. A más largo plazo:** análisis de vigas continuas por rigidez en lugar de coeficientes, losas no rectangulares y aberturas, acciones de viento y sismo.
+
+### Alcance del curso
+
 - Columnas esbeltas: amplificación de momentos (art. 10.10–10.12).
 - Secciones circulares en columnas y diagrama de interacción.
 - Bases medianeras y de esquina.

@@ -99,6 +99,30 @@ Detalle útil para capturas automáticas: `QWidget.grab()` de la ventana no incl
 - **Planta en la sesión JSON**: E-09 guarda y restaura sus paneles.
 - **Repositorio**: el archivo de instrucciones local para asistentes de código no se versiona (`.gitignore`); el historial se reescribió para quitarlo.
 
+## Diagnóstico de E-09: casos límite
+
+Balance de cargas (carga total mayorada vs. ΣPu de columnas) sobre casos que el editor permite dibujar. Un excedente de +4 a +6 % es esperable (factor 1.15 del art. 8.3.3); un déficit indica carga perdida.
+
+| Caso | ΣPu vs. total |
+|---|---|
+| Grilla regular, 2 paños 5 × 4 m | +4.1 % ✓ |
+| Planta en L | +5.7 % ✓ |
+| Losa con un borde sin viga | −8.5 % |
+| Paño de 6 × 6 junto a dos paños de 4 × 3 | −24.7 % |
+| Paños superpuestos | −30.8 % |
+| Paños desfasados (no alineados) | −40.7 % |
+| Losa en 1 dirección sin vigas en su dirección de apoyo | −67.9 % |
+
+Causas:
+- `PanelLosa` se ubica por la celda `(i, j)` de su esquina y el modelo toma `lx = grilla.lx(i)`, `ly = grilla.ly(j)`: supone que cada losa ocupa **una sola celda**. El editor permite rectángulos libres; si un paño abarca varias celdas, sus dimensiones y su carga se toman mal.
+- `_carga_tramo` solo carga vigas existentes: la parte de la losa que corresponde a un borde sin viga no se transfiere a ningún lado.
+- El editor no valida superposiciones ni apoyos.
+
+Plan de trabajo (también en el README):
+- **A. Robustez:** losas multi-celda con dimensiones reales y reparto a los tramos de viga que tocan; redistribución de bordes libres; validaciones en el editor; control de equilibrio visible en E-09 (y un test por cada caso de la tabla).
+- **B. Nuevos casos:** voladizos; cargas lineales y puntuales; varios niveles con enlace E-09 → B-07; secciones por elemento y vigas sobre vigas.
+- **C. Largo plazo:** vigas continuas por rigidez, losas no rectangulares, aberturas, viento y sismo.
+
 ## Pendientes
 
 Alcance del curso aún no cubierto:
@@ -108,8 +132,7 @@ Alcance del curso aún no cubierto:
 - Pantallas para anclajes y tirantes (la librería ya los tiene).
 - `elementos/planta.py::dimensionar_losa` todavía no dimensiona losas en 2 direcciones.
 
-Mejoras posibles:
-- E-09 de varios niveles y secciones por elemento.
+Mejoras posibles (además del plan de E-09 de la sección anterior):
 - Rótulos del lienzo E-09 más legibles con poco zoom.
 - Ejecutable para Windows (PyInstaller; pesado por QtWebEngine).
 - Los archivos temporales del visor 3D no se borran al cerrar.
